@@ -12,12 +12,15 @@ impl Model for TrafficLight {
     type State = Color;
     type Event = ();
 
-    fn process_event(
+    fn process_event<F>(
         logical_process_id: usize,
         state: &Self::State,
         _event: &Self::Event,
-        schedule_event: fn(Self::Event, Self::Timestamp, usize)
-    ) -> Self::State {
+        mut schedule_event: F
+    ) -> Self::State 
+    where
+        F: FnMut(Self::Event, Self::Timestamp, usize),
+    {
         match state {
             Color::Green => {
                 schedule_event((), 3, logical_process_id);

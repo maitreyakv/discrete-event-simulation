@@ -2,43 +2,41 @@ use std::cmp::Ordering;
 
 use crate::Model;
 
-struct Event<M: Model> {
-    data: M::Event
+// NOTE: We can maybe extract the age and sequence number out into a modular component that
+// performs deterministic total ordering of events
+
+pub(crate) struct Event<M: Model> {
+    pub(crate) data: M::Event,
+    pub(crate) timestamp: M::Timestamp,
+    pub(crate) sequence_stamp: SequenceStamp 
 }
 
-// pub struct Event<E, T: Ord> {
-//     data: E,
-//     timestamp: T,
-//     age: usize,
-//     sender_id: usize,
-//     sequence_number: usize,
-// }
-//
-// impl<D, T: Ord> Ord for Event<D, T> {
-//     fn cmp(&self, other: &Self) -> Ordering {
-//         self.timestamp.cmp(&other.timestamp)
-//             .then(self.age.cmp(&other.age))
-//             .then(self.sender_id.cmp(&other.sender_id))
-//             .then(self.sequence_number.cmp(&other.sequence_number))
-//     }
-// }
-//
-// impl<D, T: Ord> PartialOrd for Event<D, T> {
-//     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-//         Some(self.timestamp.cmp(&other.timestamp)
-//             .then(self.age.cmp(&other.age))
-//             .then(self.sender_id.cmp(&other.sender_id))
-//             .then(self.sequence_number.cmp(&other.sequence_number)))
-//     }
-// }
-//
-// impl<D, T: Ord> PartialEq for Event<D, T> {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.timestamp == other.timestamp 
-//             && self.age == other.age 
-//             && self.sender_id == other.sender_id 
-//             && self.sequence_number == other.sequence_number
-//     }
-// }
-//
-// impl <D, T: Ord> Eq for Event<D, T> {}
+impl<M: Model> Ord for Event<M> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.timestamp.cmp(&other.timestamp).then(self.sequence_stamp.cmp(&other.sequence_stamp))
+    }
+}
+
+impl<M: Model> PartialOrd for Event<M> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.timestamp.cmp(&other.timestamp)
+            .then(self.sequence_stamp.cmp(&other.sequence_stamp)))
+    } 
+}
+
+impl<M: Model> PartialEq for Event<M> {
+    fn eq(&self, other: &Self) -> bool {
+        self.timestamp == other.timestamp && self.sequence_stamp == other.sequence_stamp
+    }
+}
+
+impl<M: Model> Eq for Event<M> {}
+
+
+#[derive(Ord, PartialOrd, Eq, PartialEq)]
+pub(crate) struct SequenceStamp {
+    pub(crate) age: u8,
+    pub(crate) sender: usize,
+    pub(crate) sequence_number: usize
+}
+

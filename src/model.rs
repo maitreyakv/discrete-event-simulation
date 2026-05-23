@@ -3,14 +3,16 @@
 // richer scheduling interface
 
 pub trait Model {
-    type Timestamp: Ord;
+    type Timestamp: Ord + Copy;
     type State;
     type Event;
 
-    fn process_event(
+    fn process_event<F>(
         logical_process_id: usize,
         state: &Self::State,
         event: &Self::Event,
-        schedule_event: fn(Self::Event, Self::Timestamp, usize)
-    ) -> Self::State;
+        schedule_event: F,
+    ) -> Self::State
+    where 
+        F: FnMut(Self::Event, Self::Timestamp, usize);
 }
