@@ -12,13 +12,9 @@ impl<M: Model> SingleThreadWorker<M> {
         }
     }
 
-    pub fn with_logical_process(self, id: usize) -> Self {
-        let Self {
-            mut logical_processes,
-            ..
-        } = self;
-        logical_processes.insert(id, LogicalProcess::new(id));
-        Self { logical_processes }
+    pub fn with_logical_process(&mut self, id: usize) -> &mut Self {
+        self.logical_processes.insert(id, LogicalProcess::new(id));
+        self
     }
 
     pub fn run(&mut self, steps: usize) {

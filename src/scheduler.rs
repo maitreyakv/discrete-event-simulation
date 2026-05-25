@@ -6,23 +6,24 @@ use crate::{
     event::{Event, SequenceStamp},
 };
 
-pub struct Scheduler<M: Model> {
-    event_queue: BinaryHeap<Reverse<Event<M>>>,
-    sender: usize,
-    sequence_number: usize,
+pub struct Scheduler<'a, M: Model> {
+    pub(crate) current_event: &'a Event<M>,
+    pub(crate) event_queue: &'a mut BinaryHeap<Reverse<Event<M>>>,
+    pub(crate) sender: &'a usize,
+    pub(crate) sequence_number: &'a mut usize,
 }
 
-impl<M: Model> Scheduler<M> {
-    pub fn logical_process_id(&self) -> usize {
+impl<M: Model> Scheduler<'_, M> {
+    pub fn logical_process_id(&self) -> &usize {
         self.sender
     }
 
-    pub fn timestamp(&self) -> Option<M::Timestamp> {
-        self.event_queue.peek().map(|Reverse(e)| e.timestamp)
+    pub fn timestamp(&self) -> &M::Timestamp {
+        &self.current_event.timestamp
     }
 
-    pub fn event(&self) -> Option<&M::Event> {
-        self.event_queue.peek().map(|Reverse(e)| &e.data)
+    pub fn current_event(&self) -> &M::Event {
+        &self.current_event.data
     }
 
     pub fn schedule_event(
@@ -30,16 +31,19 @@ impl<M: Model> Scheduler<M> {
         data: M::Event,
         timestamp: M::Timestamp,
         destination: usize,
-    ) -> Result<(), ()> {
-        let source = self.next_event().unwrap();
+    ) -> Result<(), SchedulerError> {
+        if timestamp < self.current_event.timestamp {
+            return Err(SchedulerError::CausalityViolation);
+        }
+
         let sequence_stamp = SequenceStamp {
-            age: if source.timestamp == timestamp {
-                source.sequence_stamp.age + 1
+            age: if self.current_event.timestamp == timestamp {
+                self.current_event.sequence_stamp.age + 1
             } else {
                 0
             },
-            sender: self.sender,
-            sequence_number: self.sequence_number,
+            sender: *self.sender,
+            sequence_number: *self.sequence_number,
         };
         let event = Event::<M> {
             data,
@@ -47,17 +51,13 @@ impl<M: Model> Scheduler<M> {
             sequence_stamp,
         };
 
-        if &event < source {
-            return Err(());
-        }
-
-        if destination == self.sender {
+        if destination == *self.sender {
             self.event_queue.push(Reverse(event));
         } else {
             unimplemented!()
         }
 
-        self.sequence_number += 1;
+        *self.sequence_number += 1;
         Ok(())
     }
 
@@ -65,37 +65,13 @@ impl<M: Model> Scheduler<M> {
         &mut self,
         event: M::Event,
         timestamp: M::Timestamp,
-    ) -> Result<(), ()> {
-        self.schedule_event(event, timestamp, self.sender)
+    ) -> Result<(), SchedulerError> {
+        self.schedule_event(event, timestamp, *self.sender)
     }
+}
 
-    pub(crate) fn new(
-        sender: usize,
-        initial_event: M::Event,
-        initial_timestamp: M::Timestamp,
-    ) -> Self {
-        let mut event_queue = BinaryHeap::default();
-        event_queue.push(Reverse(Event {
-            data: initial_event,
-            timestamp: initial_timestamp,
-            sequence_stamp: SequenceStamp {
-                age: 0,
-                sender,
-                sequence_number: 0,
-            },
-        }));
-        Self {
-            event_queue,
-            sender,
-            sequence_number: 1,
-        }
-    }
-
-    pub(crate) fn next_event(&self) -> Option<&Event<M>> {
-        self.event_queue.peek().map(|r| &r.0)
-    }
-
-    pub(crate) fn pop_next_event(&mut self) -> Option<Event<M>> {
-        self.event_queue.pop().map(|r| r.0)
-    }
+#[derive(thiserror::Error, Debug)]
+pub enum SchedulerError {
+    #[error("event is being scheduled in the past")]
+    CausalityViolation,
 }

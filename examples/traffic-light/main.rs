@@ -11,7 +11,7 @@ impl discrete_event_simulation::Model for TrafficLight {
     type State = Color;
     type Event = ();
 
-    fn init(_: usize) -> Self {
+    fn init(_logical_process_id: usize) -> Self {
         Self
     }
 
@@ -36,12 +36,9 @@ impl discrete_event_simulation::Model for TrafficLight {
             Color::Red => (Color::Green, 60),
         };
         scheduler
-            .schedule_internal_event((), scheduler.timestamp().unwrap() + time)
+            .schedule_internal_event((), scheduler.timestamp() + time)
             .unwrap();
-        println!(
-            "{:?}: {state:?} -> {next:?}",
-            scheduler.timestamp().unwrap()
-        );
+        println!("{:?}: {state:?} -> {next:?}", scheduler.timestamp());
         next
     }
 }
