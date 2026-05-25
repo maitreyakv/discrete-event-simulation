@@ -1,8 +1,9 @@
-// Internal modules 
 mod event;
 mod logical_process;
+mod model;
+mod scheduler;
+mod single_thread_worker;
 
-// Public API
-pub mod model;
 pub use model::Model;
-
+pub use scheduler::Scheduler;
+pub use single_thread_worker::SingleThreadWorker;

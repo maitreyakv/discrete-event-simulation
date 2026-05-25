@@ -1,77 +1,59 @@
-use std::collections::{BinaryHeap, VecDeque};
+use std::collections::VecDeque;
 
-use crate::{Model, event::{Event, SequenceStamp}};
+use crate::{Model, event::Event, scheduler::Scheduler};
 
-struct LogicalProcess<M: Model> {
-    id: usize,
+pub(crate) struct LogicalProcess<M: Model> {
+    model: M,
     state: M::State,
-    history: VecDeque<Record<M>>,
+    history: History<M>,
     scheduler: Scheduler<M>,
 }
 
 impl<M: Model> LogicalProcess<M> {
-    pub fn process_all_queued_events(&mut self) {
-        let Self { id, state, history, scheduler } = self;
-
-        while let Some(event) = scheduler.next_event() {
-            let mut schedule_event = |data, timestamp, destination| {
-                scheduler.schedule_event(
-                    data, timestamp, destination, &event
-                );
-            };
-
-            let new_state = M::process_event(*id, &state, &event.data, &mut schedule_event);
-            let prior_state = std::mem::replace(state, new_state);
-            history.push_back(Record { event, prior_state });
+    pub(crate) fn new(id: usize) -> Self {
+        let model = M::init(id);
+        let initial_state = model.initial_state();
+        let initial_event = model.initial_event();
+        let initial_timestamp = model.initial_timestamp();
+        Self {
+            model,
+            state: initial_state,
+            history: History::new(),
+            scheduler: Scheduler::new(id, initial_event, initial_timestamp),
         }
     }
-}
 
-
-struct Scheduler<M: Model> {
-    sender: usize,
-    sequence_number: usize,
-    event_queue: BinaryHeap<Event<M>>,
-}
-
-impl<M: Model> Scheduler<M> {
-    fn next_event(&mut self) -> Option<Event<M>> {
-        self.event_queue.pop()
+    pub(crate) fn next_event(&self) -> Option<&Event<M>> {
+        self.scheduler.next_event()
     }
 
-    fn schedule_event(
-        &mut self, 
-        data: M::Event,
-        timestamp: M::Timestamp,
-        destination: usize,
-        source: &Event<M>,
-    ) {
-        let Self { sender, sequence_number, event_queue } = self;
-
-        let sequence_stamp = SequenceStamp {
-            age: if source.timestamp == timestamp { source.sequence_stamp.age + 1 } else { 0 },
-            sender: *sender,
-            sequence_number: *sequence_number,
+    pub(crate) fn process_next_event(&mut self) {
+        if self.next_event().is_some() {
+            let next_state = self.model.process_event(&self.state, &mut self.scheduler);
+            let processed_event = self.scheduler.pop_next_event().unwrap();
+            let prior_state = std::mem::replace(&mut self.state, next_state);
+            self.history.save_event(processed_event, prior_state);
         };
-        let event = Event { data, timestamp, sequence_stamp };
-
-        if destination == *sender {
-            event_queue.push(event);
-        } else {
-            todo!()
-        }
-
-        *sequence_number += 1;
-    }
-
-    fn send_anti_event() {
-        todo!()
-
-        // NOTE: Reminder to decrement n_sent_events
     }
 }
 
+struct History<M: Model> {
+    records: VecDeque<Record<M>>,
+}
 
+impl<M: Model> History<M> {
+    fn new() -> Self {
+        Self {
+            records: VecDeque::default(),
+        }
+    }
+
+    fn save_event(&mut self, event: Event<M>, prior_state: M::State) {
+        self.records.push_back(Record { event, prior_state });
+    }
+}
+
+#[allow(dead_code)]
 struct Record<M: Model> {
     event: Event<M>,
     prior_state: M::State,
