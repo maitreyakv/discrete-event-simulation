@@ -1,14 +1,12 @@
-use std::cmp::Reverse;
-use std::collections::BinaryHeap;
-
 use crate::{
     Model,
     event::{Event, SequenceStamp},
+    event_queue::EventQueue,
 };
 
 pub struct Scheduler<'a, M: Model> {
     pub(crate) current_event: &'a Event<M>,
-    pub(crate) event_queue: &'a mut BinaryHeap<Reverse<Event<M>>>,
+    pub(crate) event_queue: &'a mut EventQueue<M>,
     pub(crate) sender: &'a usize,
     pub(crate) sequence_number: &'a mut usize,
 }
@@ -51,11 +49,7 @@ impl<M: Model> Scheduler<'_, M> {
             sequence_stamp,
         };
 
-        if destination == *self.sender {
-            self.event_queue.push(Reverse(event));
-        } else {
-            unimplemented!()
-        }
+        // TODO: Schedule event!
 
         *self.sequence_number += 1;
         Ok(())
@@ -74,4 +68,7 @@ impl<M: Model> Scheduler<'_, M> {
 pub enum SchedulerError {
     #[error("event is being scheduled in the past")]
     CausalityViolation,
+
+    #[error("event has already been scheduled")]
+    DuplicateEvent,
 }

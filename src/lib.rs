@@ -1,4 +1,5 @@
 mod event;
+mod event_queue;
 mod logical_process;
 mod model;
 mod scheduler;
