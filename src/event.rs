@@ -4,7 +4,7 @@ use crate::Model;
 // performs deterministic total ordering of events
 
 pub(crate) struct EventKey<M: Model> {
-    pub(crate) timestamp: M::VirtualTime,
+    pub(crate) time: M::VirtualTime,
     pub(crate) age: u8,
     pub(crate) sender: M::LogicalProcessId,
     pub(crate) sequence_number: usize,
@@ -14,7 +14,7 @@ pub(crate) struct EventKey<M: Model> {
 
 impl<M: Model> PartialEq for EventKey<M> {
     fn eq(&self, other: &Self) -> bool {
-        self.timestamp == other.timestamp
+        self.time == other.time
             && self.age == other.age
             && self.sender == other.sender
             && self.sequence_number == other.sequence_number
@@ -31,8 +31,8 @@ impl<M: Model> PartialOrd for EventKey<M> {
 
 impl<M: Model> Ord for EventKey<M> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.timestamp
-            .cmp(&other.timestamp)
+        self.time
+            .cmp(&other.time)
             .then(self.age.cmp(&other.age))
             .then(self.sender.cmp(&other.sender))
             .then(self.sequence_number.cmp(&other.sequence_number))

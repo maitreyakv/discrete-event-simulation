@@ -18,9 +18,9 @@ impl<M: Model> LogicalProcessSet<M> {
             .map(|id| {
                 event_queue
                     .try_insert(
-                        M::initial_event(&id),
+                        M::init_event(&id),
                         EventKey {
-                            timestamp: M::initial_timestamp(&id),
+                            time: M::init_time(&id),
                             age: 0,
                             sender: id.to_owned(),
                             sequence_number: 0,
@@ -31,7 +31,7 @@ impl<M: Model> LogicalProcessSet<M> {
 
                 let logical_process = LogicalProcess {
                     id: id.to_owned(),
-                    state: M::initial_state(&id),
+                    state: M::init_state(&id),
                     sequence_number: 1,
                     history: Default::default(),
                 };
@@ -70,7 +70,7 @@ impl<M: Model> LogicalProcessSet<M> {
             let prior_state = std::mem::replace(&mut this_logical_process.state, next_state);
             this_logical_process.history.save_event(
                 current_event,
-                current_event_key.timestamp,
+                current_event_key.time,
                 prior_state,
             );
         };
@@ -97,10 +97,10 @@ impl<M: Model> Default for History<M> {
 }
 
 impl<M: Model> History<M> {
-    fn save_event(&mut self, event: M::Event, timestamp: M::VirtualTime, prior_state: M::State) {
+    fn save_event(&mut self, event: M::Event, time: M::VirtualTime, prior_state: M::State) {
         self.records.push_back(Record {
             event,
-            timestamp,
+            time,
             prior_state,
         });
     }
@@ -109,6 +109,6 @@ impl<M: Model> History<M> {
 #[allow(dead_code)]
 struct Record<M: Model> {
     event: M::Event,
-    timestamp: M::VirtualTime,
+    time: M::VirtualTime,
     prior_state: M::State,
 }

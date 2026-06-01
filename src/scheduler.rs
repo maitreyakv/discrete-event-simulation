@@ -20,8 +20,8 @@ impl<M: Model> Scheduler<'_, M> {
         &self.logical_process.id
     }
 
-    pub fn timestamp(&self) -> &M::VirtualTime {
-        &self.current_event_key.timestamp
+    pub fn time(&self) -> &M::VirtualTime {
+        &self.current_event_key.time
     }
 
     pub fn state(&self) -> &M::State {
@@ -35,21 +35,21 @@ impl<M: Model> Scheduler<'_, M> {
     pub fn schedule_event(
         &mut self,
         event: M::Event,
-        timestamp: M::VirtualTime,
+        time: M::VirtualTime,
         destination: M::LogicalProcessId,
     ) -> Result<(), SchedulerError> {
-        if timestamp < *self.timestamp() {
+        if time < *self.time() {
             return Err(SchedulerError::CausalityViolation);
         }
 
         let event_key = {
-            let age = if *self.timestamp() == timestamp {
+            let age = if *self.time() == time {
                 self.current_event_key.age + 1
             } else {
                 0
             };
             EventKey {
-                timestamp,
+                time,
                 age,
                 sender: self.logical_process_id().to_owned(),
                 sequence_number: self.logical_process.sequence_number,
@@ -71,9 +71,9 @@ impl<M: Model> Scheduler<'_, M> {
     pub fn schedule_internal_event(
         &mut self,
         event: M::Event,
-        timestamp: M::VirtualTime,
+        time: M::VirtualTime,
     ) -> Result<(), SchedulerError> {
-        self.schedule_event(event, timestamp, self.logical_process_id().to_owned())
+        self.schedule_event(event, time, self.logical_process_id().to_owned())
     }
 }
 
