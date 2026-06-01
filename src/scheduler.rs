@@ -1,13 +1,11 @@
 use std::collections::HashSet;
 
-use crate::{
-    Model, event::SequenceStamp, event_queue::EventQueue, logical_process::LogicalProcess,
-};
+use crate::{Model, event::EventKey, event_queue::EventQueue, logical_process::LogicalProcess};
 
 pub struct Scheduler<'a, M: Model> {
     pub(crate) logical_process: &'a mut LogicalProcess<M>,
     pub(crate) current_event: &'a M::Event,
-    pub(crate) current_sequence_stamp: &'a SequenceStamp<M>,
+    pub(crate) current_event_key: &'a EventKey<M>,
     pub(crate) event_queue: &'a mut EventQueue<M>,
     pub(crate) these_logical_processes: HashSet<M::LogicalProcessId>,
 }
@@ -18,7 +16,7 @@ impl<M: Model> Scheduler<'_, M> {
     }
 
     pub fn timestamp(&self) -> &M::VirtualTime {
-        &self.current_sequence_stamp.timestamp
+        &self.current_event_key.timestamp
     }
 
     pub fn current_state(&self) -> &M::State {
@@ -39,13 +37,13 @@ impl<M: Model> Scheduler<'_, M> {
             return Err(SchedulerError::CausalityViolation);
         }
 
-        let sequence_stamp = {
+        let event_key = {
             let age = if *self.timestamp() == timestamp {
-                self.current_sequence_stamp.age + 1
+                self.current_event_key.age + 1
             } else {
                 0
             };
-            SequenceStamp {
+            EventKey {
                 timestamp,
                 age,
                 sender: self.logical_process_id().to_owned(),
@@ -55,7 +53,7 @@ impl<M: Model> Scheduler<'_, M> {
 
         if self.these_logical_processes.contains(&destination) {
             self.event_queue
-                .try_insert(event, sequence_stamp, destination)
+                .try_insert(event, event_key, destination)
                 .map_err(|_| SchedulerError::DuplicateEvent)?
         } else {
             unimplemented!()

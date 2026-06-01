@@ -1,17 +1,17 @@
 use std::collections::{BTreeMap, btree_map::Entry};
 
-use crate::{Model, event::SequenceStamp};
+use crate::{Model, event::EventKey};
 
-pub(crate) struct EventQueue<M: Model>(BTreeMap<SequenceStamp<M>, (M::Event, M::LogicalProcessId)>);
+pub(crate) struct EventQueue<M: Model>(BTreeMap<EventKey<M>, (M::Event, M::LogicalProcessId)>);
 
 impl<M: Model> EventQueue<M> {
     pub(crate) fn try_insert(
         &mut self,
         event: M::Event,
-        sequence_stamp: SequenceStamp<M>,
+        event_key: EventKey<M>,
         destination: M::LogicalProcessId,
     ) -> Result<(), DuplicateEventError> {
-        match self.0.entry(sequence_stamp) {
+        match self.0.entry(event_key) {
             Entry::Vacant(v) => {
                 v.insert((event, destination));
                 Ok(())
@@ -20,10 +20,10 @@ impl<M: Model> EventQueue<M> {
         }
     }
 
-    pub(crate) fn pop_next(&mut self) -> Option<(SequenceStamp<M>, M::Event, M::LogicalProcessId)> {
+    pub(crate) fn pop_next(&mut self) -> Option<(EventKey<M>, M::Event, M::LogicalProcessId)> {
         self.0
             .pop_first()
-            .map(|(sequence_stamp, (event, destination))| (sequence_stamp, event, destination))
+            .map(|(event_key, (event, destination))| (event_key, event, destination))
     }
 }
 

@@ -2,7 +2,7 @@ use crate::event_queue::EventQueue;
 
 use std::collections::{BTreeMap, HashSet, VecDeque};
 
-use crate::{Model, event::SequenceStamp, scheduler::Scheduler};
+use crate::{Model, event::EventKey, scheduler::Scheduler};
 
 pub(crate) struct LogicalProcessSet<M: Model> {
     logical_processes: BTreeMap<M::LogicalProcessId, LogicalProcess<M>>,
@@ -19,7 +19,7 @@ impl<M: Model> LogicalProcessSet<M> {
                 event_queue
                     .try_insert(
                         M::initial_event(&id),
-                        SequenceStamp {
+                        EventKey {
                             timestamp: M::initial_timestamp(&id),
                             age: 0,
                             sender: id.to_owned(),
@@ -47,9 +47,7 @@ impl<M: Model> LogicalProcessSet<M> {
     }
 
     pub(crate) fn process_next_event(&mut self) {
-        if let Some((current_sequence_stamp, current_event, destination)) =
-            self.event_queue.pop_next()
-        {
+        if let Some((current_event_key, current_event, destination)) = self.event_queue.pop_next() {
             let mut scheduler = {
                 let these_logical_processes = self.logical_processes.keys().cloned().collect();
                 Scheduler {
@@ -58,7 +56,7 @@ impl<M: Model> LogicalProcessSet<M> {
                         .get_mut(&destination)
                         .expect("event destination not in this set"),
                     current_event: &current_event,
-                    current_sequence_stamp: &current_sequence_stamp,
+                    current_event_key: &current_event_key,
                     event_queue: &mut self.event_queue,
                     these_logical_processes,
                 }
@@ -72,7 +70,7 @@ impl<M: Model> LogicalProcessSet<M> {
             let prior_state = std::mem::replace(&mut this_logical_process.state, next_state);
             this_logical_process.history.save_event(
                 current_event,
-                current_sequence_stamp.timestamp,
+                current_event_key.timestamp,
                 prior_state,
             );
         };
