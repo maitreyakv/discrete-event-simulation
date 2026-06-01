@@ -35,4 +35,4 @@ impl<M: Model> Default for EventQueue<M> {
 
 #[derive(thiserror::Error, Debug)]
 #[error("Duplicate event detected")]
-pub(crate) struct DuplicateEventError;
+pub struct DuplicateEventError;

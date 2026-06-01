@@ -1,6 +1,11 @@
 use std::collections::HashSet;
 
-use crate::{Model, event::EventKey, event_queue::EventQueue, logical_process::LogicalProcess};
+use crate::{
+    Model,
+    event::EventKey,
+    event_queue::{self, EventQueue},
+    logical_process::LogicalProcess,
+};
 
 pub struct Scheduler<'a, M: Model> {
     pub(crate) logical_process: &'a mut LogicalProcess<M>,
@@ -54,7 +59,7 @@ impl<M: Model> Scheduler<'_, M> {
         if self.these_logical_processes.contains(&destination) {
             self.event_queue
                 .try_insert(event, event_key, destination)
-                .map_err(|_| SchedulerError::DuplicateEvent)?
+                .map_err(SchedulerError::from)?
         } else {
             unimplemented!()
         }
@@ -78,5 +83,5 @@ pub enum SchedulerError {
     CausalityViolation,
 
     #[error("event has already been scheduled")]
-    DuplicateEvent,
+    DuplicateEvent(#[from] event_queue::DuplicateEventError),
 }
