@@ -23,15 +23,18 @@ impl discrete_event_simulation::Model for TrafficLight {
     fn process_event(
         scheduler: &mut discrete_event_simulation::Scheduler<Self>,
     ) -> Result<Self::State, Self::Error> {
-        let state = scheduler.state().to_owned();
-        let (next, time) = match state {
+        let current_color = scheduler.state().to_owned();
+        let (next_color, duration) = match current_color {
             Color::Green => (Color::Yellow, 3),
             Color::Yellow => (Color::Red, 20),
             Color::Red => (Color::Green, 60),
         };
-        let _ = scheduler.schedule_internal_event((), scheduler.time() + time);
-        println!("{:?}: {state:?} -> {next:?}", scheduler.time());
-        Ok(next)
+        let _ = scheduler.schedule_internal_event((), scheduler.time() + duration);
+        println!(
+            "changed from {current_color:?} -> {next_color:?} at {} seconds",
+            scheduler.time()
+        );
+        Ok(next_color)
     }
 }
 
