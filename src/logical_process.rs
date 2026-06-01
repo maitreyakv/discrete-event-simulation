@@ -81,7 +81,7 @@ pub(crate) struct LogicalProcess<M: Model> {
     pub(crate) id: M::LogicalProcessId,
     pub(crate) state: M::State,
     pub(crate) sequence_number: usize,
-    pub(crate) history: History<M>,
+    history: History<M>,
 }
 
 struct History<M: Model> {
