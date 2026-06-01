@@ -16,10 +16,11 @@ impl<M: Model> LogicalProcessSet<M> {
         let logical_processes = ids
             .into_iter()
             .map(|id| {
+                let (state, event) = M::initialize(&id);
                 event_queue.insert(
-                    M::init_event(&id),
+                    event,
                     EventKey {
-                        time: M::init_time(&id),
+                        time: M::start_time(),
                         age: 0,
                         sender: id.to_owned(),
                         sequence_number: 0,
@@ -29,7 +30,7 @@ impl<M: Model> LogicalProcessSet<M> {
 
                 let logical_process = LogicalProcess {
                     id: id.to_owned(),
-                    state: M::init_state(&id),
+                    state,
                     sequence_number: 1,
                     history: Default::default(),
                 };

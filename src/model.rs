@@ -8,11 +8,9 @@ pub trait Model: Sized {
     type State;
     type Event;
 
-    fn init_state(id: &Self::LogicalProcessId) -> Self::State;
+    fn initialize(_id: &Self::LogicalProcessId) -> (Self::State, Self::Event);
 
-    fn init_event(id: &Self::LogicalProcessId) -> Self::Event;
-
-    fn init_time(id: &Self::LogicalProcessId) -> Self::VirtualTime;
+    fn start_time() -> Self::VirtualTime;
 
     fn process_event(scheduler: &mut Scheduler<Self>) -> Result<Self::State, DesError>;
 }
