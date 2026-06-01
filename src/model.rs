@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use crate::scheduler::Scheduler;
+use crate::{DesError, scheduler::Scheduler};
 
 pub trait Model: Sized {
     type LogicalProcessId: Ord + Hash + Clone;
@@ -14,5 +14,5 @@ pub trait Model: Sized {
 
     fn init_time(id: &Self::LogicalProcessId) -> Self::VirtualTime;
 
-    fn process_event(scheduler: &mut Scheduler<Self>) -> Self::State;
+    fn process_event(scheduler: &mut Scheduler<Self>) -> Result<Self::State, DesError>;
 }

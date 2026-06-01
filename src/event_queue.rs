@@ -1,23 +1,17 @@
-use std::collections::{BTreeMap, btree_map::Entry};
+use std::collections::BTreeMap;
 
 use crate::{Model, event::EventKey};
 
 pub(crate) struct EventQueue<M: Model>(BTreeMap<EventKey<M>, (M::Event, M::LogicalProcessId)>);
 
 impl<M: Model> EventQueue<M> {
-    pub(crate) fn try_insert(
+    pub(crate) fn insert(
         &mut self,
         event: M::Event,
         event_key: EventKey<M>,
         destination: M::LogicalProcessId,
-    ) -> Result<(), DuplicateEventError> {
-        match self.0.entry(event_key) {
-            Entry::Vacant(v) => {
-                v.insert((event, destination));
-                Ok(())
-            }
-            Entry::Occupied(_) => Err(DuplicateEventError),
-        }
+    ) {
+        self.0.insert(event_key, (event, destination));
     }
 
     pub(crate) fn pop_next(&mut self) -> Option<(EventKey<M>, M::Event, M::LogicalProcessId)> {
@@ -32,7 +26,3 @@ impl<M: Model> Default for EventQueue<M> {
         Self(Default::default())
     }
 }
-
-#[derive(thiserror::Error, Debug)]
-#[error("Duplicate event detected")]
-pub struct DuplicateEventError;

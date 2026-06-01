@@ -1,4 +1,4 @@
-use crate::event_queue::EventQueue;
+use crate::{DesError, event_queue::EventQueue};
 
 use std::collections::{BTreeMap, HashSet, VecDeque};
 
@@ -16,18 +16,16 @@ impl<M: Model> LogicalProcessSet<M> {
         let logical_processes = ids
             .into_iter()
             .map(|id| {
-                event_queue
-                    .try_insert(
-                        M::init_event(&id),
-                        EventKey {
-                            time: M::init_time(&id),
-                            age: 0,
-                            sender: id.to_owned(),
-                            sequence_number: 0,
-                        },
-                        id.to_owned(),
-                    )
-                    .expect("duplicate event was produced during initialization");
+                event_queue.insert(
+                    M::init_event(&id),
+                    EventKey {
+                        time: M::init_time(&id),
+                        age: 0,
+                        sender: id.to_owned(),
+                        sequence_number: 0,
+                    },
+                    id.to_owned(),
+                );
 
                 let logical_process = LogicalProcess {
                     id: id.to_owned(),
@@ -46,7 +44,7 @@ impl<M: Model> LogicalProcessSet<M> {
         }
     }
 
-    pub(crate) fn process_next_event(&mut self) {
+    pub(crate) fn process_next_event(&mut self) -> Result<(), DesError> {
         if let Some((current_event_key, current_event, destination)) = self.event_queue.pop_next() {
             let mut scheduler = {
                 let these_logical_processes = self.logical_processes.keys().cloned().collect();
@@ -61,7 +59,7 @@ impl<M: Model> LogicalProcessSet<M> {
                     these_logical_processes,
                 }
             };
-            let next_state = M::process_event(&mut scheduler);
+            let next_state = M::process_event(&mut scheduler)?;
 
             let this_logical_process = self
                 .logical_processes
@@ -74,6 +72,8 @@ impl<M: Model> LogicalProcessSet<M> {
                 prior_state,
             );
         };
+
+        Ok(())
     }
 }
 

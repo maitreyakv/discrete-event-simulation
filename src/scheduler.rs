@@ -1,10 +1,7 @@
 use std::collections::HashSet;
 
 use crate::{
-    Model,
-    event::EventKey,
-    event_queue::{self, EventQueue},
-    logical_process::LogicalProcess,
+    DesError, Model, event::EventKey, event_queue::EventQueue, logical_process::LogicalProcess,
 };
 
 pub struct Scheduler<'a, M: Model> {
@@ -37,9 +34,9 @@ impl<M: Model> Scheduler<'_, M> {
         event: M::Event,
         time: M::VirtualTime,
         destination: M::LogicalProcessId,
-    ) -> Result<(), SchedulerError> {
+    ) -> Result<(), DesError> {
         if time < *self.time() {
-            return Err(SchedulerError::CausalityViolation);
+            return Err(DesError::CausalityViolation);
         }
 
         let event_key = {
@@ -48,23 +45,21 @@ impl<M: Model> Scheduler<'_, M> {
             } else {
                 0
             };
-            EventKey {
+            let event_key = EventKey {
                 time,
                 age,
                 sender: self.logical_process_id().to_owned(),
                 sequence_number: self.logical_process.sequence_number,
-            }
+            };
+            self.logical_process.sequence_number += 1;
+            event_key
         };
 
         if self.these_logical_processes.contains(&destination) {
-            self.event_queue
-                .try_insert(event, event_key, destination)
-                .map_err(SchedulerError::from)?
+            self.event_queue.insert(event, event_key, destination);
         } else {
             unimplemented!()
         }
-
-        self.logical_process.sequence_number += 1;
         Ok(())
     }
 
@@ -72,16 +67,7 @@ impl<M: Model> Scheduler<'_, M> {
         &mut self,
         event: M::Event,
         time: M::VirtualTime,
-    ) -> Result<(), SchedulerError> {
+    ) -> Result<(), DesError> {
         self.schedule_event(event, time, self.logical_process_id().to_owned())
     }
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum SchedulerError {
-    #[error("event is being scheduled in the past")]
-    CausalityViolation,
-
-    #[error("event has already been scheduled")]
-    DuplicateEvent(#[from] event_queue::DuplicateEventError),
 }

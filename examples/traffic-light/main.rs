@@ -1,7 +1,7 @@
 use discrete_event_simulation::run_single_thread;
 
 fn main() {
-    run_single_thread::<TrafficLight>(vec![0].into_iter().collect(), 10);
+    run_single_thread::<TrafficLight>(vec![0].into_iter().collect(), 10).unwrap();
 }
 
 struct TrafficLight;
@@ -22,18 +22,18 @@ impl discrete_event_simulation::Model for TrafficLight {
         0
     }
 
-    fn process_event(scheduler: &mut discrete_event_simulation::Scheduler<Self>) -> Self::State {
+    fn process_event(
+        scheduler: &mut discrete_event_simulation::Scheduler<Self>,
+    ) -> Result<Self::State, discrete_event_simulation::DesError> {
         let state = scheduler.state().to_owned();
         let (next, time) = match state {
             Color::Green => (Color::Yellow, 3),
             Color::Yellow => (Color::Red, 20),
             Color::Red => (Color::Green, 60),
         };
-        scheduler
-            .schedule_internal_event((), scheduler.time() + time)
-            .unwrap();
+        scheduler.schedule_internal_event((), scheduler.time() + time)?;
         println!("{:?}: {state:?} -> {next:?}", scheduler.time());
-        next
+        Ok(next)
     }
 }
 
