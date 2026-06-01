@@ -1,17 +1,18 @@
+use std::hash::Hash;
+
 use crate::scheduler::Scheduler;
 
 pub trait Model: Sized {
-    type Timestamp: Ord + Copy;
+    type LogicalProcessId: Ord + Hash + Clone;
+    type VirtualTime: Ord;
     type State;
     type Event;
 
-    fn init(logical_process_id: usize) -> Self;
+    fn initial_state(id: &Self::LogicalProcessId) -> Self::State;
 
-    fn initial_state(&self) -> Self::State;
+    fn initial_event(id: &Self::LogicalProcessId) -> Self::Event;
 
-    fn initial_event(&self) -> Self::Event;
+    fn initial_timestamp(id: &Self::LogicalProcessId) -> Self::VirtualTime;
 
-    fn initial_timestamp(&self) -> Self::Timestamp;
-
-    fn process_event(&self, state: &Self::State, scheduler: &mut Scheduler<Self>) -> Self::State;
+    fn process_event(scheduler: &mut Scheduler<Self>) -> Self::State;
 }

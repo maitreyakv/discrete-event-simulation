@@ -1,66 +1,76 @@
+use std::collections::HashSet;
+
 use crate::{
-    Model,
-    event::{Event, SequenceStamp},
-    event_queue::EventQueue,
+    Model, event::SequenceStamp, event_queue::EventQueue, logical_process::LogicalProcess,
 };
 
 pub struct Scheduler<'a, M: Model> {
-    pub(crate) current_event: &'a Event<M>,
+    pub(crate) logical_process: &'a mut LogicalProcess<M>,
+    pub(crate) current_event: &'a M::Event,
+    pub(crate) current_sequence_stamp: &'a SequenceStamp<M>,
     pub(crate) event_queue: &'a mut EventQueue<M>,
-    pub(crate) sender: &'a usize,
-    pub(crate) sequence_number: &'a mut usize,
+    pub(crate) these_logical_processes: HashSet<M::LogicalProcessId>,
 }
 
 impl<M: Model> Scheduler<'_, M> {
-    pub fn logical_process_id(&self) -> &usize {
-        self.sender
+    pub fn logical_process_id(&self) -> &M::LogicalProcessId {
+        &self.logical_process.id
     }
 
-    pub fn timestamp(&self) -> &M::Timestamp {
-        &self.current_event.timestamp
+    pub fn timestamp(&self) -> &M::VirtualTime {
+        &self.current_sequence_stamp.timestamp
+    }
+
+    pub fn current_state(&self) -> &M::State {
+        &self.logical_process.state
     }
 
     pub fn current_event(&self) -> &M::Event {
-        &self.current_event.data
+        self.current_event
     }
 
     pub fn schedule_event(
         &mut self,
-        data: M::Event,
-        timestamp: M::Timestamp,
-        destination: usize,
+        event: M::Event,
+        timestamp: M::VirtualTime,
+        destination: M::LogicalProcessId,
     ) -> Result<(), SchedulerError> {
-        if timestamp < self.current_event.timestamp {
+        if timestamp < *self.timestamp() {
             return Err(SchedulerError::CausalityViolation);
         }
 
-        let sequence_stamp = SequenceStamp {
-            age: if self.current_event.timestamp == timestamp {
-                self.current_event.sequence_stamp.age + 1
+        let sequence_stamp = {
+            let age = if *self.timestamp() == timestamp {
+                self.current_sequence_stamp.age + 1
             } else {
                 0
-            },
-            sender: *self.sender,
-            sequence_number: *self.sequence_number,
-        };
-        let event = Event::<M> {
-            data,
-            timestamp,
-            sequence_stamp,
+            };
+            SequenceStamp {
+                timestamp,
+                age,
+                sender: self.logical_process_id().to_owned(),
+                sequence_number: self.logical_process.sequence_number,
+            }
         };
 
-        // TODO: Schedule event!
+        if self.these_logical_processes.contains(&destination) {
+            self.event_queue
+                .try_insert(event, sequence_stamp, destination)
+                .map_err(|_| SchedulerError::DuplicateEvent)?
+        } else {
+            unimplemented!()
+        }
 
-        *self.sequence_number += 1;
+        self.logical_process.sequence_number += 1;
         Ok(())
     }
 
     pub fn schedule_internal_event(
         &mut self,
         event: M::Event,
-        timestamp: M::Timestamp,
+        timestamp: M::VirtualTime,
     ) -> Result<(), SchedulerError> {
-        self.schedule_event(event, timestamp, *self.sender)
+        self.schedule_event(event, timestamp, self.logical_process_id().to_owned())
     }
 }
 

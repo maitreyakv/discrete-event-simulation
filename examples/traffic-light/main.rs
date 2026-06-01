@@ -1,35 +1,29 @@
+use discrete_event_simulation::run_single_thread;
+
 fn main() {
-    discrete_event_simulation::SingleThreadWorker::<TrafficLight>::new()
-        .with_logical_process(0)
-        .run(10);
+    run_single_thread::<TrafficLight>(vec![0].into_iter().collect(), 10);
 }
 
 struct TrafficLight;
 
 impl discrete_event_simulation::Model for TrafficLight {
-    type Timestamp = usize;
+    type LogicalProcessId = usize;
+    type VirtualTime = usize;
     type State = Color;
     type Event = ();
 
-    fn init(_logical_process_id: usize) -> Self {
-        Self
-    }
-
-    fn initial_state(&self) -> Self::State {
+    fn initial_state(_id: &Self::LogicalProcessId) -> Self::State {
         Color::Red
     }
 
-    fn initial_event(&self) -> Self::Event {}
+    fn initial_event(_id: &Self::LogicalProcessId) -> Self::Event {}
 
-    fn initial_timestamp(&self) -> Self::Timestamp {
+    fn initial_timestamp(_id: &Self::LogicalProcessId) -> Self::VirtualTime {
         0
     }
 
-    fn process_event(
-        &self,
-        state: &Self::State,
-        scheduler: &mut discrete_event_simulation::Scheduler<Self>,
-    ) -> Self::State {
+    fn process_event(scheduler: &mut discrete_event_simulation::Scheduler<Self>) -> Self::State {
+        let state = scheduler.current_state().to_owned();
         let (next, time) = match state {
             Color::Green => (Color::Yellow, 3),
             Color::Yellow => (Color::Red, 20),
@@ -43,7 +37,7 @@ impl discrete_event_simulation::Model for TrafficLight {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Color {
     Green,
     Yellow,

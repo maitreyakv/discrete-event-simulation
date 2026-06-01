@@ -3,8 +3,8 @@ mod event_queue;
 mod logical_process;
 mod model;
 mod scheduler;
-mod single_thread_worker;
+mod worker;
 
 pub use model::Model;
 pub use scheduler::Scheduler;
-pub use single_thread_worker::SingleThreadWorker;
+pub use worker::run_single_thread;
