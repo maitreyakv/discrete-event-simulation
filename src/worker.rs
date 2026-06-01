@@ -5,7 +5,7 @@ use crate::{DesError, Model, logical_process::LogicalProcessSet};
 pub fn run_single_thread<M: Model>(
     ids: HashSet<M::LogicalProcessId>,
     steps: usize,
-) -> Result<(), DesError> {
+) -> Result<(), DesError<M::Error>> {
     let mut worker: Worker<M> = Worker {
         logical_processes: LogicalProcessSet::from_ids(ids),
     };
@@ -20,7 +20,7 @@ struct Worker<M: Model> {
 }
 
 impl<M: Model> Worker<M> {
-    fn step(&mut self) -> Result<(), DesError> {
+    fn step(&mut self) -> Result<(), DesError<M::Error>> {
         self.logical_processes.process_next_event()
     }
 }
