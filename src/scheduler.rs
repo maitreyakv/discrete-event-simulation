@@ -19,11 +19,11 @@ impl<M: Model> Scheduler<'_, M> {
         &self.current_event_key.timestamp
     }
 
-    pub fn current_state(&self) -> &M::State {
+    pub fn state(&self) -> &M::State {
         &self.logical_process.state
     }
 
-    pub fn current_event(&self) -> &M::Event {
+    pub fn event(&self) -> &M::Event {
         self.current_event
     }
 

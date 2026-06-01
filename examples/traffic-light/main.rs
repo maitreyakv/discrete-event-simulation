@@ -23,7 +23,7 @@ impl discrete_event_simulation::Model for TrafficLight {
     }
 
     fn process_event(scheduler: &mut discrete_event_simulation::Scheduler<Self>) -> Self::State {
-        let state = scheduler.current_state().to_owned();
+        let state = scheduler.state().to_owned();
         let (next, time) = match state {
             Color::Green => (Color::Yellow, 3),
             Color::Yellow => (Color::Red, 20),
