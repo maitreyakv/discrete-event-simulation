@@ -1,8 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{
-    DesError, Model, event::EventKey, event_queue::EventQueue, logical_process::LogicalProcess,
-};
+use crate::{Model, event::EventKey, event_queue::EventQueue, logical_process::LogicalProcess};
 
 pub struct Scheduler<'a, M: Model> {
     pub(crate) logical_process: &'a mut LogicalProcess<M>,
@@ -34,9 +32,9 @@ impl<M: Model> Scheduler<'_, M> {
         event: M::Event,
         time: M::VirtualTime,
         destination: M::LogicalProcessId,
-    ) -> Result<(), DesError> {
+    ) -> Result<(), CausalityViolation> {
         if time < *self.time() {
-            return Err(DesError::CausalityViolation);
+            return Err(CausalityViolation);
         }
 
         let event_key = {
@@ -56,7 +54,7 @@ impl<M: Model> Scheduler<'_, M> {
         };
 
         if self.these_logical_processes.contains(&destination) {
-            self.event_queue.insert(event, event_key, destination);
+            self.event_queue.insert(event, event_key, destination)
         } else {
             unimplemented!()
         }
@@ -67,7 +65,11 @@ impl<M: Model> Scheduler<'_, M> {
         &mut self,
         event: M::Event,
         time: M::VirtualTime,
-    ) -> Result<(), DesError> {
+    ) -> Result<(), CausalityViolation> {
         self.schedule_event(event, time, self.logical_process_id().to_owned())
     }
 }
+
+#[derive(thiserror::Error, Debug)]
+#[error("event was scheduled in the past")]
+pub struct CausalityViolation;
