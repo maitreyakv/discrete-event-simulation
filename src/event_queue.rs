@@ -8,16 +8,22 @@ impl<M: Model> EventQueue<M> {
     pub(crate) fn insert(
         &mut self,
         event: M::Event,
-        event_key: EventKey<M>,
+        key: EventKey<M>,
         destination: M::LogicalProcessId,
     ) {
-        self.0.insert(event_key, (event, destination));
+        self.0.insert(key, (event, destination));
     }
 
     pub(crate) fn pop_next(&mut self) -> Option<(EventKey<M>, M::Event, M::LogicalProcessId)> {
         self.0
             .pop_first()
-            .map(|(event_key, (event, destination))| (event_key, event, destination))
+            .map(|(key, (event, destination))| (key, event, destination))
+    }
+
+    pub(crate) fn time_of_next_event(&self) -> Option<&M::VirtualTime> {
+        self.0
+            .first_key_value()
+            .map(|(key, (_event, _destination))| &key.time)
     }
 }
 

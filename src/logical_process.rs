@@ -1,4 +1,4 @@
-use crate::{DesError, event_queue::EventQueue};
+use crate::{Committable, DesError, event_queue::EventQueue};
 
 use std::collections::{BTreeMap, HashSet, VecDeque};
 
@@ -60,8 +60,7 @@ impl<M: Model> LogicalProcessSet<M> {
                     these_logical_processes,
                 }
             };
-            let next_state =
-                M::process_event(&mut scheduler).map_err(|e| DesError::EventProcessFailure(e))?;
+            let (next_state, output) = M::process_event(&mut scheduler)?;
 
             let this_logical_process = self
                 .logical_processes
@@ -72,10 +71,23 @@ impl<M: Model> LogicalProcessSet<M> {
                 current_event,
                 current_event_key.time,
                 prior_state,
+                output,
             );
         };
 
         Ok(())
+    }
+
+    pub(crate) fn time_of_next_event(&self) -> Option<&M::VirtualTime> {
+        self.event_queue.time_of_next_event()
+    }
+
+    pub(crate) fn collect_fossils(&mut self, global_virtual_time: &M::VirtualTime) {
+        self.logical_processes
+            .values_mut()
+            .for_each(|logical_process| {
+                logical_process.history.collect_fossils(global_virtual_time)
+            });
     }
 }
 
@@ -86,7 +98,7 @@ pub(crate) struct LogicalProcess<M: Model> {
     history: History<M>,
 }
 
-struct History<M: Model> {
+pub(crate) struct History<M: Model> {
     records: VecDeque<Record<M>>,
 }
 
@@ -99,12 +111,27 @@ impl<M: Model> Default for History<M> {
 }
 
 impl<M: Model> History<M> {
-    fn save_event(&mut self, event: M::Event, time: M::VirtualTime, prior_state: M::State) {
+    fn save_event(
+        &mut self,
+        event: M::Event,
+        time: M::VirtualTime,
+        prior_state: M::State,
+        output: M::Output,
+    ) {
         self.records.push_back(Record {
             event,
             time,
             prior_state,
+            output,
         });
+    }
+
+    fn collect_fossils(&mut self, global_virtual_time: &M::VirtualTime) {
+        if let Some(Record { output, .. }) =
+            self.records.pop_front_if(|r| r.time < *global_virtual_time)
+        {
+            output.commit();
+        }
     }
 }
 
@@ -113,4 +140,5 @@ struct Record<M: Model> {
     event: M::Event,
     time: M::VirtualTime,
     prior_state: M::State,
+    output: M::Output,
 }
