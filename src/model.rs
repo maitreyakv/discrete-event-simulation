@@ -10,7 +10,7 @@ pub trait Model: Sized {
     type Output: Committable;
     type Error;
 
-    fn initialize(_id: &Self::LogicalProcessId) -> (Self::State, Self::Event);
+    fn initialize(id: &Self::LogicalProcessId) -> (Self::State, Self::Event);
 
     fn start_time() -> Self::VirtualTime;
 

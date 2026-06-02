@@ -1,0 +1,12 @@
+[package]
+name = "air-traffic"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4.44"
+discrete-event-simulation = {path = "../.."}
+
+[[bin]]
+name = "air-traffic"
+path = "main.rs"
