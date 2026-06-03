@@ -34,19 +34,23 @@ impl discrete_event_simulation::Model for AirTraffic {
         mut scheduler: des::Scheduler<Self>,
     ) -> Result<(Self::State, Self::Output), Self::Error> {
         match scheduler.event() {
-            Event::Init => match *scheduler.logical_process_id() {
-                Airport::LAX => {
-                    Self::schedule_departure(
-                        &mut scheduler,
-                        Aircraft::depart(Airport::LAX),
-                        Airport::JFK,
-                        15,
-                    )?;
-                    todo!()
-                }
-                Airport::JFK => todo!(),
-                Airport::ORD => todo!(),
-            },
+            Event::Init => {
+                match *scheduler.logical_process_id() {
+                    Airport::LAX => {
+                        Self::schedule_departure(&mut scheduler, Airport::JFK, 5)?;
+                        Self::schedule_departure(&mut scheduler, Airport::JFK, 15)?;
+                    }
+                    Airport::JFK => {
+                        Self::schedule_departure(&mut scheduler, Airport::LAX, 10)?;
+                        Self::schedule_departure(&mut scheduler, Airport::JFK, 20)?;
+                    }
+                    Airport::ORD => {
+                        Self::schedule_departure(&mut scheduler, Airport::JFK, 15)?;
+                        Self::schedule_departure(&mut scheduler, Airport::JFK, 25)?;
+                    }
+                };
+                Ok((Default::default(), Log))
+            }
             Event::Arrival(aircraft) => todo!(),
             Event::Landing => todo!(),
             Event::Departure(aircraft, airport) => todo!(),
@@ -57,7 +61,6 @@ impl discrete_event_simulation::Model for AirTraffic {
 impl AirTraffic {
     fn schedule_departure(
         scheduler: &mut des::Scheduler<Self>,
-        aircraft: Aircraft,
         destination: Airport,
         minutes: i64,
     ) -> Result<(), des::CausalityViolation> {
