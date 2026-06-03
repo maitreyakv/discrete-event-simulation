@@ -1,4 +1,4 @@
-use discrete_event_simulation::{self as des};
+use discrete_event_simulation::{self as des, Scheduler};
 
 use std::{collections::VecDeque, str::FromStr};
 
@@ -22,7 +22,7 @@ impl discrete_event_simulation::Model for AirTraffic {
     type Output = Log;
     type Error = des::CausalityViolation;
 
-    fn initialize(id: &Self::LogicalProcessId) -> (Self::State, Self::Event) {
+    fn initialize(_id: &Self::LogicalProcessId) -> (Self::State, Self::Event) {
         Default::default()
     }
 
@@ -31,21 +31,47 @@ impl discrete_event_simulation::Model for AirTraffic {
     }
 
     fn process_event(
-        scheduler: des::Scheduler<Self>,
+        mut scheduler: des::Scheduler<Self>,
     ) -> Result<(Self::State, Self::Output), Self::Error> {
         match scheduler.event() {
-            AirportEvent::Init => todo!(),
-            AirportEvent::Arrival(aircraft) => todo!(),
-            AirportEvent::Landing => todo!(),
-            AirportEvent::Departure(aircraft, airport) => todo!(),
+            Event::Init => match *scheduler.logical_process_id() {
+                Airport::LAX => {
+                    Self::schedule_departure(
+                        &mut scheduler,
+                        Aircraft::depart(Airport::LAX),
+                        Airport::JFK,
+                        15,
+                    )?;
+                    todo!()
+                }
+                Airport::JFK => todo!(),
+                Airport::ORD => todo!(),
+            },
+            Event::Arrival(aircraft) => todo!(),
+            Event::Landing => todo!(),
+            Event::Departure(aircraft, airport) => todo!(),
         }
+    }
+}
+
+impl AirTraffic {
+    fn schedule_departure(
+        scheduler: &mut des::Scheduler<Self>,
+        aircraft: Aircraft,
+        destination: Airport,
+        minutes: i64,
+    ) -> Result<(), des::CausalityViolation> {
+        todo!()
     }
 }
 
 type LandingQueue = VecDeque<Aircraft>;
 
-#[derive(Clone, Copy)]
-enum AirportEvent {
+type DateTimeUtc = chrono::DateTime<chrono::Utc>;
+
+#[derive(Clone, Copy, Default)]
+enum Event {
+    #[default]
     Init,
     Arrival(Aircraft),
     Landing,
@@ -65,7 +91,7 @@ struct Aircraft {
 }
 
 impl Aircraft {
-    fn depart(self, origin: Airport) -> Self {
+    fn depart(origin: Airport) -> Self {
         Self { origin }
     }
 }
