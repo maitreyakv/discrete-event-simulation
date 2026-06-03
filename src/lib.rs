@@ -10,5 +10,6 @@ mod worker;
 pub use errors::DesError;
 pub use model::Model;
 pub use output::Committable;
+pub use scheduler::CausalityViolation;
 pub use scheduler::Scheduler;
 pub use worker::run_single_thread;

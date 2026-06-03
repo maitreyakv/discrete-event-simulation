@@ -47,7 +47,7 @@ impl<M: Model> LogicalProcessSet<M> {
 
     pub(crate) fn process_next_event(&mut self) -> Result<(), DesError<M::Error>> {
         if let Some((current_event_key, current_event, destination)) = self.event_queue.pop_next() {
-            let mut scheduler = {
+            let scheduler = {
                 let these_logical_processes = self.logical_processes.keys().cloned().collect();
                 Scheduler {
                     logical_process: self
@@ -60,7 +60,7 @@ impl<M: Model> LogicalProcessSet<M> {
                     these_logical_processes,
                 }
             };
-            let (next_state, output) = M::process_event(&mut scheduler)?;
+            let (next_state, output) = M::process_event(scheduler)?;
 
             let this_logical_process = self
                 .logical_processes

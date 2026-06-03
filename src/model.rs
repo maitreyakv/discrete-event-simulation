@@ -15,6 +15,6 @@ pub trait Model: Sized {
     fn start_time() -> Self::VirtualTime;
 
     fn process_event(
-        scheduler: &mut Scheduler<Self>,
+        scheduler: Scheduler<Self>,
     ) -> Result<(Self::State, Self::Output), Self::Error>;
 }
