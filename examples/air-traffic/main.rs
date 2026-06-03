@@ -1,3 +1,4 @@
+use chrono::TimeDelta;
 use discrete_event_simulation::{self as des};
 
 use std::collections::VecDeque;
@@ -7,7 +8,7 @@ fn main() {
         vec![Airport::LAX, Airport::JFK, Airport::ORD]
             .into_iter()
             .collect(),
-        chrono::Utc::now(),
+        chrono::Utc::now() + TimeDelta::days(2),
     )
     .unwrap()
 }
@@ -49,15 +50,16 @@ impl discrete_event_simulation::Model for AirTraffic {
                         Self::depart_aircraft(&mut scheduler, Airport::LAX)?;
                     }
                 };
-                Ok((Default::default(), Log))
+                Ok((Default::default(), Log::from(&scheduler)))
             }
-            Event::Arrival(aircraft) => {
-                Self::arrive_aircraft(&mut scheduler, aircraft).map(|lq| (lq, Log))
+            Event::Arrival(aircraft) => Self::arrive_aircraft(&mut scheduler, aircraft)
+                .map(|lq| (lq, Log::from(&scheduler))),
+            Event::Landing => {
+                Self::land_aircraft(&mut scheduler).map(|lq| (lq, Log::from(&scheduler)))
             }
-            Event::Landing => Self::land_aircraft(&mut scheduler).map(|lq| (lq, Log)),
             Event::Departure(destination) => {
                 Self::depart_aircraft(&mut scheduler, destination)?;
-                Ok((scheduler.state().clone(), Log))
+                Ok((scheduler.state().clone(), Log::from(&scheduler)))
             }
         }
     }
@@ -131,6 +133,20 @@ enum Airport {
     ORD,
 }
 
+impl std::fmt::Display for Airport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Airport::LAX => "LAX",
+                Airport::JFK => "JFK",
+                Airport::ORD => "ORD",
+            }
+        )
+    }
+}
+
 impl Airport {
     fn time_to(&self, other: &Airport) -> chrono::TimeDelta {
         match (self, other) {
@@ -156,8 +172,30 @@ impl Aircraft {
     }
 }
 
-struct Log;
+struct Log(Airport, Event, DateTimeUtc);
+
+impl From<&des::Scheduler<'_, AirTraffic>> for Log {
+    fn from(scheduler: &des::Scheduler<'_, AirTraffic>) -> Self {
+        Self(
+            *scheduler.logical_process_id(),
+            *scheduler.event(),
+            *scheduler.time(),
+        )
+    }
+}
 
 impl des::Committable for Log {
-    fn commit(self) {}
+    fn commit(self) {
+        let Log(airport, event, time) = self;
+        println!(
+            "{} - {airport} - {}",
+            time.format("%Y/%m/%d %H:%M"),
+            match event {
+                Event::Init => "initial departures".to_string(),
+                Event::Arrival(aircraft) => format!("arrival from {}", aircraft.origin),
+                Event::Landing => "aircraft landed".to_string(),
+                Event::Departure(airport) => format!("departure to {}", airport),
+            }
+        );
+    }
 }
