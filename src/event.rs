@@ -10,7 +10,8 @@ pub(crate) struct EventKey<M: Model> {
     pub(crate) sequence_number: usize,
 }
 
-// NOTE: We have to manually implement these traits because the derive macro would require `M: Ord`
+// NOTE: We have to manually implement these traits because the derive macro would require
+// `M: Ord` or `M: Clone`
 
 impl<M: Model> PartialEq for EventKey<M> {
     fn eq(&self, other: &Self) -> bool {
@@ -18,6 +19,17 @@ impl<M: Model> PartialEq for EventKey<M> {
             && self.age == other.age
             && self.sender == other.sender
             && self.sequence_number == other.sequence_number
+    }
+}
+
+impl<M: Model> Clone for EventKey<M> {
+    fn clone(&self) -> Self {
+        Self {
+            time: self.time.clone(),
+            age: self.age,
+            sender: self.sender.clone(),
+            sequence_number: self.sequence_number,
+        }
     }
 }
 

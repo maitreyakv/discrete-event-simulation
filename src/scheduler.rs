@@ -8,9 +8,10 @@ pub struct Scheduler<'a, M: Model> {
     pub(crate) current_event_key: &'a EventKey<M>,
     pub(crate) event_queue: &'a mut EventQueue<M>,
     pub(crate) these_logical_processes: HashSet<M::LogicalProcessId>,
+    pub(crate) scheduled_events: Vec<(M::Event, M::VirtualTime, M::LogicalProcessId)>,
 }
 
-impl<M: Model> Scheduler<'_, M> {
+impl<'a, M: Model> Scheduler<'a, M> {
     pub fn logical_process_id(&self) -> &M::LogicalProcessId {
         &self.logical_process.id
     }
@@ -36,28 +37,7 @@ impl<M: Model> Scheduler<'_, M> {
         if time < *self.time() {
             return Err(CausalityViolation);
         }
-
-        let event_key = {
-            let age = if *self.time() == time {
-                self.current_event_key.age + 1
-            } else {
-                0
-            };
-            let event_key = EventKey {
-                time,
-                age,
-                sender: self.logical_process_id().to_owned(),
-                sequence_number: self.logical_process.sequence_number,
-            };
-            self.logical_process.sequence_number += 1;
-            event_key
-        };
-
-        if self.these_logical_processes.contains(&destination) {
-            self.event_queue.insert(event, event_key, destination)
-        } else {
-            unimplemented!()
-        }
+        self.scheduled_events.push((event, time, destination));
         Ok(())
     }
 
@@ -67,6 +47,62 @@ impl<M: Model> Scheduler<'_, M> {
         time: M::VirtualTime,
     ) -> Result<(), CausalityViolation> {
         self.schedule_event(event, time, self.logical_process_id().to_owned())
+    }
+
+    pub(crate) fn new(
+        logical_process: &'a mut LogicalProcess<M>,
+        current_event: &'a M::Event,
+        current_event_key: &'a EventKey<M>,
+        event_queue: &'a mut EventQueue<M>,
+        these_logical_processes: HashSet<M::LogicalProcessId>,
+    ) -> Self {
+        Scheduler {
+            logical_process,
+            current_event,
+            current_event_key,
+            event_queue,
+            these_logical_processes,
+            scheduled_events: Default::default(),
+        }
+    }
+
+    pub(crate) fn send_scheduled_events(self) -> Vec<EventKey<M>> {
+        let Self {
+            scheduled_events,
+            current_event_key:
+                EventKey {
+                    time: this_time,
+                    age: this_age,
+                    ..
+                },
+            logical_process: this_logical_process,
+            ..
+        } = self;
+        scheduled_events
+            .into_iter()
+            .map(|(event, time, destination)| {
+                let event_key = {
+                    let age = if *this_time == time { this_age + 1 } else { 0 };
+                    let event_key = EventKey {
+                        time,
+                        age,
+                        sender: this_logical_process.id.clone(),
+                        sequence_number: this_logical_process.sequence_number,
+                    };
+                    this_logical_process.sequence_number += 1;
+                    event_key
+                };
+
+                if self.these_logical_processes.contains(&destination) {
+                    self.event_queue
+                        .insert(event, event_key.clone(), destination)
+                } else {
+                    unimplemented!()
+                }
+
+                event_key
+            })
+            .collect()
     }
 }
 

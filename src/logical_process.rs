@@ -47,20 +47,20 @@ impl<M: Model> LogicalProcessSet<M> {
 
     pub(crate) fn process_next_event(&mut self) -> Result<(), DesError<M::Error>> {
         if let Some((current_event_key, current_event, destination)) = self.event_queue.pop_next() {
-            let scheduler = {
+            let mut scheduler = {
                 let these_logical_processes = self.logical_processes.keys().cloned().collect();
-                Scheduler {
-                    logical_process: self
-                        .logical_processes
+                Scheduler::new(
+                    self.logical_processes
                         .get_mut(&destination)
                         .expect("event destination not in this set"),
-                    current_event: &current_event,
-                    current_event_key: &current_event_key,
-                    event_queue: &mut self.event_queue,
+                    &current_event,
+                    &current_event_key,
+                    &mut self.event_queue,
                     these_logical_processes,
-                }
+                )
             };
-            let (next_state, output) = M::process_event(scheduler)?;
+            let (next_state, output) = M::process_event(&mut scheduler)?;
+            let scheduled_event_keys = scheduler.send_scheduled_events();
 
             let this_logical_process = self
                 .logical_processes
@@ -69,9 +69,10 @@ impl<M: Model> LogicalProcessSet<M> {
             let prior_state = std::mem::replace(&mut this_logical_process.state, next_state);
             this_logical_process.history.save_event(
                 current_event,
-                current_event_key.time,
+                current_event_key,
                 prior_state,
                 output,
+                scheduled_event_keys,
             );
         };
 
@@ -114,21 +115,24 @@ impl<M: Model> History<M> {
     fn save_event(
         &mut self,
         event: M::Event,
-        time: M::VirtualTime,
+        event_key: EventKey<M>,
         prior_state: M::State,
         output: M::Output,
+        scheduled_event_keys: Vec<EventKey<M>>,
     ) {
         self.records.push_back(Record {
             event,
-            time,
+            event_key,
             prior_state,
             output,
+            scheduled_event_keys,
         });
     }
 
     fn collect_fossils(&mut self, global_virtual_time: &M::VirtualTime) {
-        if let Some(Record { output, .. }) =
-            self.records.pop_front_if(|r| r.time < *global_virtual_time)
+        if let Some(Record { output, .. }) = self
+            .records
+            .pop_front_if(|r| r.event_key.time < *global_virtual_time)
         {
             output.commit();
         }
@@ -138,7 +142,8 @@ impl<M: Model> History<M> {
 #[allow(dead_code)]
 struct Record<M: Model> {
     event: M::Event,
-    time: M::VirtualTime,
+    event_key: EventKey<M>,
     prior_state: M::State,
     output: M::Output,
+    scheduled_event_keys: Vec<EventKey<M>>,
 }
