@@ -8,7 +8,7 @@ fn main() {
         vec![Airport::LAX, Airport::JFK, Airport::ORD]
             .into_iter()
             .collect(),
-        chrono::Utc::now() + TimeDelta::days(2),
+        chrono::Utc::now() + TimeDelta::hours(12),
     )
     .unwrap()
 }
