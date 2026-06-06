@@ -32,34 +32,33 @@ impl discrete_event_simulation::Model for AirTraffic {
     }
 
     fn process_event(
-        mut scheduler: des::Scheduler<Self>,
+        scheduler: &mut des::Scheduler<Self>,
     ) -> Result<(Self::State, Self::Output), Self::Error> {
         match *scheduler.event() {
             Event::Init => {
                 match *scheduler.logical_process_id() {
                     Airport::LAX => {
-                        Self::depart_aircraft(&mut scheduler, Airport::JFK)?;
-                        Self::depart_aircraft(&mut scheduler, Airport::ORD)?;
+                        Self::depart_aircraft(scheduler, Airport::JFK)?;
+                        Self::depart_aircraft(scheduler, Airport::ORD)?;
                     }
                     Airport::JFK => {
-                        Self::depart_aircraft(&mut scheduler, Airport::LAX)?;
-                        Self::depart_aircraft(&mut scheduler, Airport::ORD)?;
+                        Self::depart_aircraft(scheduler, Airport::LAX)?;
+                        Self::depart_aircraft(scheduler, Airport::ORD)?;
                     }
                     Airport::ORD => {
-                        Self::depart_aircraft(&mut scheduler, Airport::JFK)?;
-                        Self::depart_aircraft(&mut scheduler, Airport::LAX)?;
+                        Self::depart_aircraft(scheduler, Airport::JFK)?;
+                        Self::depart_aircraft(scheduler, Airport::LAX)?;
                     }
                 };
-                Ok((Default::default(), Log::from(&scheduler)))
+                Ok((Default::default(), Log::from(scheduler)))
             }
-            Event::Arrival(aircraft) => Self::arrive_aircraft(&mut scheduler, aircraft)
-                .map(|lq| (lq, Log::from(&scheduler))),
-            Event::Landing => {
-                Self::land_aircraft(&mut scheduler).map(|lq| (lq, Log::from(&scheduler)))
+            Event::Arrival(aircraft) => {
+                Self::arrive_aircraft(scheduler, aircraft).map(|lq| (lq, Log::from(scheduler)))
             }
+            Event::Landing => Self::land_aircraft(scheduler).map(|lq| (lq, Log::from(scheduler))),
             Event::Departure(destination) => {
-                Self::depart_aircraft(&mut scheduler, destination)?;
-                Ok((scheduler.state().clone(), Log::from(&scheduler)))
+                Self::depart_aircraft(scheduler, destination)?;
+                Ok((scheduler.state().clone(), Log::from(scheduler)))
             }
         }
     }
@@ -174,8 +173,8 @@ impl Aircraft {
 
 struct Log(Airport, Event, DateTimeUtc);
 
-impl From<&des::Scheduler<'_, AirTraffic>> for Log {
-    fn from(scheduler: &des::Scheduler<'_, AirTraffic>) -> Self {
+impl From<&mut des::Scheduler<'_, AirTraffic>> for Log {
+    fn from(scheduler: &mut des::Scheduler<'_, AirTraffic>) -> Self {
         Self(
             *scheduler.logical_process_id(),
             *scheduler.event(),
