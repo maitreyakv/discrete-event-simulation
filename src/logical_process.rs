@@ -29,35 +29,18 @@ impl<M: Model> LogicalProcessSet<M> {
 
     pub(crate) fn process_next_event(&mut self) -> Result<(), DesError<M::Error>> {
         if let Some((current_event_key, current_event, destination)) = self.event_queue.pop_next() {
-            let mut scheduler = {
-                let these_logical_processes = self.logical_processes.keys().cloned().collect();
-                Scheduler::new(
-                    self.logical_processes
-                        .get_mut(&destination)
-                        .expect("event destination not in this set"),
-                    &current_event,
-                    &current_event_key,
-                    &mut self.event_queue,
-                    these_logical_processes,
-                )
-            };
-            let (next_state, output) = M::process_event(&mut scheduler)?;
-            let scheduled_event_keys = scheduler.send_scheduled_events();
-
-            let this_logical_process = self
-                .logical_processes
-                .get_mut(&destination)
-                .expect("event destination not in this set");
-            let prior_state = std::mem::replace(&mut this_logical_process.state, next_state);
-            this_logical_process.history.save_event(
+            let these_logical_processes = self.logical_processes.keys().cloned().collect();
+            Scheduler::new(
+                self.logical_processes
+                    .get_mut(&destination)
+                    .expect("event destination not in this set"),
                 current_event,
                 current_event_key,
-                prior_state,
-                output,
-                scheduled_event_keys,
-            );
+                &mut self.event_queue,
+                these_logical_processes,
+            )
+            .process_event()?;
         };
-
         Ok(())
     }
 
@@ -78,7 +61,7 @@ pub(crate) struct LogicalProcess<M: Model> {
     pub(crate) id: M::LogicalProcessId,
     pub(crate) state: M::State,
     pub(crate) sequence_number: usize,
-    history: History<M>,
+    pub(crate) history: History<M>,
 }
 
 impl<M: Model> LogicalProcess<M> {
@@ -105,7 +88,7 @@ impl<M: Model> Default for History<M> {
 }
 
 impl<M: Model> History<M> {
-    fn save_event(
+    pub(crate) fn save_event(
         &mut self,
         event: M::Event,
         event_key: EventKey<M>,

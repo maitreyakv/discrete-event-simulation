@@ -4,8 +4,8 @@ use crate::{Model, event::EventKey, event_queue::EventQueue, logical_process::Lo
 
 pub struct Scheduler<'a, M: Model> {
     pub(crate) logical_process: &'a mut LogicalProcess<M>,
-    pub(crate) current_event: &'a M::Event,
-    pub(crate) current_event_key: &'a EventKey<M>,
+    pub(crate) current_event: M::Event,
+    pub(crate) current_event_key: EventKey<M>,
     pub(crate) event_queue: &'a mut EventQueue<M>,
     pub(crate) these_logical_processes: HashSet<M::LogicalProcessId>,
     pub(crate) scheduled_events: Vec<(M::Event, M::VirtualTime, M::LogicalProcessId)>,
@@ -25,7 +25,7 @@ impl<'a, M: Model> Scheduler<'a, M> {
     }
 
     pub fn event(&self) -> &M::Event {
-        self.current_event
+        &self.current_event
     }
 
     pub fn schedule_event(
@@ -51,8 +51,8 @@ impl<'a, M: Model> Scheduler<'a, M> {
 
     pub(crate) fn new(
         logical_process: &'a mut LogicalProcess<M>,
-        current_event: &'a M::Event,
-        current_event_key: &'a EventKey<M>,
+        current_event: M::Event,
+        current_event_key: EventKey<M>,
         event_queue: &'a mut EventQueue<M>,
         these_logical_processes: HashSet<M::LogicalProcessId>,
     ) -> Self {
@@ -66,14 +66,16 @@ impl<'a, M: Model> Scheduler<'a, M> {
         }
     }
 
-    pub(crate) fn send_scheduled_events(self) -> Vec<EventKey<M>> {
+    pub(crate) fn process_event(mut self) -> Result<(), M::Error> {
+        let (next_state, output) = M::process_event(&mut self)?;
         let Self {
             scheduled_events,
+            current_event,
             current_event_key,
             logical_process,
             ..
         } = self;
-        scheduled_events
+        let scheduled_event_keys = scheduled_events
             .into_iter()
             .map(|(event, time, destination)| {
                 let event_key = current_event_key.create_another(time, logical_process);
@@ -86,7 +88,16 @@ impl<'a, M: Model> Scheduler<'a, M> {
                 logical_process.sequence_number += 1;
                 event_key
             })
-            .collect()
+            .collect();
+        let prior_state = std::mem::replace(&mut logical_process.state, next_state);
+        logical_process.history.save_event(
+            current_event,
+            current_event_key,
+            prior_state,
+            output,
+            scheduled_event_keys,
+        );
+        Ok(())
     }
 }
 
