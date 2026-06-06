@@ -69,37 +69,21 @@ impl<'a, M: Model> Scheduler<'a, M> {
     pub(crate) fn send_scheduled_events(self) -> Vec<EventKey<M>> {
         let Self {
             scheduled_events,
-            current_event_key:
-                EventKey {
-                    time: this_time,
-                    age: this_age,
-                    ..
-                },
-            logical_process: this_logical_process,
+            current_event_key,
+            logical_process,
             ..
         } = self;
         scheduled_events
             .into_iter()
             .map(|(event, time, destination)| {
-                let event_key = {
-                    let age = if *this_time == time { this_age + 1 } else { 0 };
-                    let event_key = EventKey {
-                        time,
-                        age,
-                        sender: this_logical_process.id.clone(),
-                        sequence_number: this_logical_process.sequence_number,
-                    };
-                    this_logical_process.sequence_number += 1;
-                    event_key
-                };
-
+                let event_key = current_event_key.create_another(time, logical_process);
                 if self.these_logical_processes.contains(&destination) {
                     self.event_queue
-                        .insert(event, event_key.clone(), destination)
+                        .insert(event, event_key.clone(), destination);
                 } else {
                     unimplemented!()
                 }
-
+                logical_process.sequence_number += 1;
                 event_key
             })
             .collect()

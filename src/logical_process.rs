@@ -1,8 +1,8 @@
-use crate::{Committable, DesError, event_queue::EventQueue};
+use crate::{event_queue::EventQueue, Committable, DesError};
 
 use std::collections::{BTreeMap, HashSet, VecDeque};
 
-use crate::{Model, event::EventKey, scheduler::Scheduler};
+use crate::{event::EventKey, scheduler::Scheduler, Model};
 
 pub(crate) struct LogicalProcessSet<M: Model> {
     logical_processes: BTreeMap<M::LogicalProcessId, LogicalProcess<M>>,
@@ -17,19 +17,10 @@ impl<M: Model> LogicalProcessSet<M> {
             .into_iter()
             .map(|id| {
                 let (state, event) = M::initialize(&id);
-                event_queue.insert(
-                    event,
-                    EventKey {
-                        time: M::start_time(),
-                        age: 0,
-                        sender: id.to_owned(),
-                        sequence_number: 0,
-                    },
-                    id.to_owned(),
-                );
+                event_queue.insert(event, EventKey::create_first(id.clone()), id.clone());
 
                 let logical_process = LogicalProcess {
-                    id: id.to_owned(),
+                    id: id.clone(),
                     state,
                     sequence_number: 1,
                     history: Default::default(),
