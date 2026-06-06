@@ -83,7 +83,7 @@ impl<'a, M: Model> Scheduler<'a, M> {
                     self.event_queue
                         .insert(event, event_key.clone(), destination);
                 } else {
-                    unimplemented!()
+                    unimplemented!(/* impl sending events to other workers via a postbox */)
                 }
                 logical_process.sequence_number += 1;
                 event_key
