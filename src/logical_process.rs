@@ -54,9 +54,7 @@ impl<M: Model> LogicalProcessSet<M> {
     pub(crate) fn collect_fossils(&mut self, global_virtual_time: &M::VirtualTime) {
         self.logical_processes
             .values_mut()
-            .for_each(|logical_process| {
-                logical_process.history.collect_fossils(global_virtual_time)
-            });
+            .for_each(|lp| lp.collect_fossils(global_virtual_time));
     }
 
     pub(crate) fn receive_event(
@@ -114,19 +112,16 @@ impl<M: Model> LogicalProcess<M> {
         }
     }
 
+    fn collect_fossils(&mut self, global_virtual_time: &M::VirtualTime) {
+        self.history.collect_fossils(global_virtual_time);
+    }
+
     fn rollback(&mut self, until: &EventKey<M>, event_queue: &mut EventQueue<M>) {
-        self.history.rollback(until).for_each(
-            |(
-                event_key,
-                Record {
-                    prior_state, event, ..
-                },
-            )| {
-                self.state = prior_state;
-                event_queue.insert(event, event_key, self.id.clone());
-                unimplemented!(/* send anti events */)
-            },
-        );
+        self.history.rollback(until).for_each(|(key, record)| {
+            self.state = record.prior_state;
+            event_queue.insert(record.event, key, self.id.clone());
+            unimplemented!(/* send anti events */)
+        });
     }
 }
 
