@@ -20,6 +20,10 @@ impl<M: Model> EventQueue<M> {
             .map(|(key, (event, destination))| (key, event, destination))
     }
 
+    pub(crate) fn remove(&mut self, key: &EventKey<M>) -> bool {
+        self.0.remove(key).is_some()
+    }
+
     pub(crate) fn time_of_next_event(&self) -> Option<&M::VirtualTime> {
         self.0
             .first_key_value()

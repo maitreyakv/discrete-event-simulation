@@ -1,12 +1,13 @@
 use crate::{Committable, DesError, event_queue::EventQueue};
 
-use std::collections::{BTreeMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashSet, VecDeque};
 
 use crate::{Model, event::EventKey, scheduler::Scheduler};
 
 pub(crate) struct LogicalProcessSet<M: Model> {
     logical_processes: BTreeMap<M::LogicalProcessId, LogicalProcess<M>>,
     event_queue: EventQueue<M>,
+    guard: BTreeSet<EventKey<M>>,
 }
 
 impl<M: Model> LogicalProcessSet<M> {
@@ -24,10 +25,11 @@ impl<M: Model> LogicalProcessSet<M> {
         Self {
             logical_processes,
             event_queue,
+            guard: Default::default(),
         }
     }
 
-    pub(crate) fn process_next_event(&mut self) -> Result<(), DesError<M::Error>> {
+    pub(crate) fn process_next_event(&mut self) -> Result<(), DesError<M>> {
         if let Some((current_event_key, current_event, destination)) = self.event_queue.pop_next() {
             let these_logical_processes = self.logical_processes.keys().cloned().collect();
             Scheduler::new(
@@ -39,7 +41,8 @@ impl<M: Model> LogicalProcessSet<M> {
                 &mut self.event_queue,
                 these_logical_processes,
             )
-            .process_event()?;
+            .process_event()
+            .map_err(DesError::EventProcessFailure)?
         };
         Ok(())
     }
@@ -54,6 +57,43 @@ impl<M: Model> LogicalProcessSet<M> {
             .for_each(|logical_process| {
                 logical_process.history.collect_fossils(global_virtual_time)
             });
+    }
+
+    pub(crate) fn receive_event(
+        &mut self,
+        event: M::Event,
+        key: EventKey<M>,
+        destination: M::LogicalProcessId,
+    ) -> Result<(), DesError<M>> {
+        if !self.guard.remove(&key) {
+            self.logical_processes
+                .get_mut(&destination)
+                .ok_or_else(|| DesError::MissingLogicalProcess(destination.clone()))?
+                .rollback(&key, &mut self.event_queue);
+            self.event_queue.insert(event, key, destination);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn receive_anti_event(
+        &mut self,
+        key: EventKey<M>,
+        destination: M::LogicalProcessId,
+    ) -> Result<(), DesError<M>> {
+        if self.event_queue.remove(&key) {
+            return Ok(());
+        }
+        let logical_process = self
+            .logical_processes
+            .get_mut(&destination)
+            .ok_or_else(|| DesError::MissingLogicalProcess(destination.clone()))?;
+        if logical_process.history.contains_event(&key) {
+            logical_process.rollback(&key, &mut self.event_queue);
+            self.event_queue.remove(&key);
+        } else {
+            self.guard.insert(key);
+        }
+        Ok(())
     }
 }
 
@@ -73,16 +113,31 @@ impl<M: Model> LogicalProcess<M> {
             history: Default::default(),
         }
     }
+
+    fn rollback(&mut self, until: &EventKey<M>, event_queue: &mut EventQueue<M>) {
+        self.history.rollback(until).for_each(
+            |(
+                event_key,
+                Record {
+                    prior_state, event, ..
+                },
+            )| {
+                self.state = prior_state;
+                event_queue.insert(event, event_key, self.id.clone());
+                unimplemented!(/* send anti events */)
+            },
+        );
+    }
 }
 
 pub(crate) struct History<M: Model> {
-    records: VecDeque<Record<M>>,
+    records: BTreeMap<EventKey<M>, Record<M>>,
 }
 
 impl<M: Model> Default for History<M> {
     fn default() -> Self {
         Self {
-            records: VecDeque::default(),
+            records: Default::default(),
         }
     }
 }
@@ -96,21 +151,38 @@ impl<M: Model> History<M> {
         output: M::Output,
         scheduled_event_keys: Vec<EventKey<M>>,
     ) {
-        self.records.push_back(Record {
-            event,
+        self.records.insert(
             event_key,
-            prior_state,
-            output,
-            scheduled_event_keys,
-        });
+            Record {
+                event,
+                prior_state,
+                output,
+                scheduled_event_keys,
+            },
+        );
+    }
+
+    fn contains_event(&self, key: &EventKey<M>) -> bool {
+        self.records.contains_key(key)
+    }
+
+    fn rollback(&mut self, until: &EventKey<M>) -> impl Iterator<Item = (EventKey<M>, Record<M>)> {
+        std::iter::from_fn(move || {
+            if let Some((key, _)) = self.records.last_key_value()
+                && key >= until
+            {
+                self.records.pop_last()
+            } else {
+                None
+            }
+        })
     }
 
     fn collect_fossils(&mut self, global_virtual_time: &M::VirtualTime) {
-        if let Some(Record { output, .. }) = self
-            .records
-            .pop_front_if(|r| r.event_key.time < *global_virtual_time)
+        while let Some((key, _)) = self.records.first_key_value()
+            && key.time < *global_virtual_time
         {
-            output.commit();
+            self.records.pop_first().unwrap().1.output.commit();
         }
     }
 }
@@ -118,7 +190,6 @@ impl<M: Model> History<M> {
 #[allow(dead_code)]
 struct Record<M: Model> {
     event: M::Event,
-    event_key: EventKey<M>,
     prior_state: M::State,
     output: M::Output,
     scheduled_event_keys: Vec<EventKey<M>>,
