@@ -1,8 +1,8 @@
-use crate::{event_queue::EventQueue, Committable, DesError};
+use crate::{Committable, DesError, event_queue::EventQueue};
 
 use std::collections::{BTreeMap, HashSet, VecDeque};
 
-use crate::{event::EventKey, scheduler::Scheduler, Model};
+use crate::{Model, event::EventKey, scheduler::Scheduler};
 
 pub(crate) struct LogicalProcessSet<M: Model> {
     logical_processes: BTreeMap<M::LogicalProcessId, LogicalProcess<M>>,
@@ -12,24 +12,15 @@ pub(crate) struct LogicalProcessSet<M: Model> {
 impl<M: Model> LogicalProcessSet<M> {
     pub(crate) fn from_ids(ids: HashSet<M::LogicalProcessId>) -> Self {
         let mut event_queue = EventQueue::default();
-
         let logical_processes = ids
             .into_iter()
             .map(|id| {
                 let (state, event) = M::initialize(&id);
                 event_queue.insert(event, EventKey::create_first(id.clone()), id.clone());
-
-                let logical_process = LogicalProcess {
-                    id: id.clone(),
-                    state,
-                    sequence_number: 1,
-                    history: Default::default(),
-                };
-
+                let logical_process = LogicalProcess::create(id.clone(), state);
                 (id, logical_process)
             })
             .collect();
-
         Self {
             logical_processes,
             event_queue,
@@ -88,6 +79,17 @@ pub(crate) struct LogicalProcess<M: Model> {
     pub(crate) state: M::State,
     pub(crate) sequence_number: usize,
     history: History<M>,
+}
+
+impl<M: Model> LogicalProcess<M> {
+    fn create(id: M::LogicalProcessId, state: M::State) -> Self {
+        Self {
+            id,
+            state,
+            sequence_number: 0,
+            history: Default::default(),
+        }
+    }
 }
 
 pub(crate) struct History<M: Model> {
