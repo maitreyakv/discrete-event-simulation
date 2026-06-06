@@ -6,6 +6,7 @@ fn main() {
     .unwrap();
 }
 
+#[derive(Debug)]
 struct TrafficLight;
 
 impl discrete_event_simulation::Model for TrafficLight {

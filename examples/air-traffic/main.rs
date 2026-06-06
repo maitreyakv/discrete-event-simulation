@@ -13,6 +13,7 @@ fn main() {
     .unwrap()
 }
 
+#[derive(Debug)]
 struct AirTraffic;
 
 impl discrete_event_simulation::Model for AirTraffic {
