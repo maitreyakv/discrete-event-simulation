@@ -7,14 +7,11 @@ pub fn run_single_thread<M: Model>(
     until: M::VirtualTime,
 ) -> Result<(), DesError<M::Error>> {
     let mut logical_processes = LogicalProcessSet::<M>::from_ids(ids);
-
-    while let Some(global_virtual_time) =
-        logical_processes.time_of_next_event().map(|t| t.to_owned())
-        && global_virtual_time < until
+    while let Some(time) = logical_processes.time_of_next_event().cloned()
+        && time < until
     {
         logical_processes.process_next_event()?;
-        logical_processes.collect_fossils(&global_virtual_time);
+        logical_processes.collect_fossils(&time);
     }
-
     Ok(())
 }
