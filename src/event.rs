@@ -3,17 +3,17 @@ mod key;
 mod queue;
 
 use crate::Model;
-use anti::AntiEvent;
-use key::EventKey;
+pub(crate) use anti::AntiEvent;
+pub(crate) use key::EventKey;
 
-struct Event<M>
+pub(crate) struct Event<M>
 where
     M: Model,
     M::VirtualTime: Ord,
     M::LogicalProcessId: Ord,
 {
-    key: EventKey<M>,
-    data: M::Event,
+    pub(crate) key: EventKey<M>,
+    pub(crate) data: M::Event,
 }
 
 impl<M> Ord for Event<M>

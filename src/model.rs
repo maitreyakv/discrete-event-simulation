@@ -12,3 +12,7 @@ pub trait Model: Sized {
 
     fn process_event() -> Result<(Self::State, Self::Output), Self::Error>;
 }
+
+pub trait Committable {
+    fn commit(self);
+}

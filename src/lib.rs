@@ -1,4 +1,5 @@
 mod event;
+mod logical_process;
 mod model;
 
-pub use model::Model;
+pub use model::{Committable, Model};
