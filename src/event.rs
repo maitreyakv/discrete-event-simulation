@@ -1,49 +1,50 @@
-struct Event<Data, VirtualTime, LogicalProcessId> {
+mod key;
+mod queue;
+
+use key::EventKey;
+
+struct Event<Data, VirtualTime, LogicalProcessId>
+where
+    VirtualTime: Ord,
+    LogicalProcessId: Ord,
+{
     key: EventKey<VirtualTime, LogicalProcessId>,
     data: Data,
 }
 
-#[derive(Ord, PartialOrd, PartialEq, Eq)]
-struct EventKey<VirtualTime, LogicalProcessId> {
-    time: VirtualTime,
-    location: LogicalProcessId,
-    age: usize,
-    origin: LogicalProcessId,
-    sequence_number: usize,
+impl<Data, VirtualTime, LogicalProcessId> Ord for Event<Data, VirtualTime, LogicalProcessId>
+where
+    VirtualTime: Ord,
+    LogicalProcessId: Ord,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.key.cmp(&other.key)
+    }
 }
 
-impl<VirtualTime, LogicalProcessId> EventKey<VirtualTime, LogicalProcessId> {
-    fn create_first(
-        time: VirtualTime,
-        location: LogicalProcessId,
-        origin: LogicalProcessId,
-    ) -> Self {
-        Self {
-            time,
-            location,
-            age: 0,
-            origin,
-            sequence_number: 0,
-        }
+impl<Data, VirtualTime, LogicalProcessId> PartialOrd for Event<Data, VirtualTime, LogicalProcessId>
+where
+    VirtualTime: Ord,
+    LogicalProcessId: Ord,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.key.cmp(&other.key))
     }
+}
 
-    fn create_another(
-        &self,
-        time: VirtualTime,
-        location: LogicalProcessId,
-        origin: LogicalProcessId,
-        sequence_number: usize,
-    ) -> Self
-    where
-        VirtualTime: PartialEq,
-    {
-        let age = if self.time == time { self.age + 1 } else { 0 };
-        Self {
-            time,
-            location,
-            age,
-            origin,
-            sequence_number,
-        }
+impl<Data, VirtualTime, LogicalProcessId> Eq for Event<Data, VirtualTime, LogicalProcessId>
+where
+    VirtualTime: Ord,
+    LogicalProcessId: Ord,
+{
+}
+
+impl<Data, VirtualTime, LogicalProcessId> PartialEq for Event<Data, VirtualTime, LogicalProcessId>
+where
+    VirtualTime: Ord,
+    LogicalProcessId: Ord,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
     }
 }
