@@ -6,13 +6,9 @@ use crate::event::AntiEvent;
 use crate::event::Event;
 use crate::event::EventKey;
 
-#[derive(Default)]
-pub(crate) struct History<M>
+pub(crate) struct History<M>(BTreeMap<EventKey<M>, Record<M>>)
 where
-    M: Model,
-{
-    records: BTreeMap<EventKey<M>, Record<M>>,
-}
+    M: Model;
 
 impl<M> History<M>
 where
@@ -27,7 +23,7 @@ where
         output: M::Output,
         anti_events: Vec<AntiEvent<M>>,
     ) {
-        self.records.insert(
+        self.0.insert(
             event.key,
             Record {
                 event_data: event.data,
@@ -38,16 +34,16 @@ where
         );
     }
 
-    fn contains_event(&self, key: &EventKey<M>) -> bool {
-        self.records.contains_key(key)
+    pub(crate) fn contains_event(&self, key: &EventKey<M>) -> bool {
+        self.0.contains_key(key)
     }
 
-    fn rollback(&mut self, until: &EventKey<M>) -> impl Iterator<Item = Rollback<M>> {
+    pub(crate) fn rollback(&mut self, until: &EventKey<M>) -> impl Iterator<Item = Rollback<M>> {
         std::iter::from_fn(move || {
-            if let Some((key, _)) = self.records.last_key_value()
+            if let Some((key, _)) = self.0.last_key_value()
                 && key >= until
             {
-                self.records.pop_last().map(|(key, record)| Rollback {
+                self.0.pop_last().map(|(key, record)| Rollback {
                     event: Event {
                         key,
                         data: record.event_data,
@@ -61,27 +57,36 @@ where
         })
     }
 
-    fn collect_fossils(&mut self, global_virtual_time: &M::VirtualTime)
+    pub(crate) fn collect_fossils(&mut self, global_virtual_time: &M::VirtualTime)
     where
         M::Output: Committable,
     {
-        while let Some((key, _)) = self.records.first_key_value()
+        while let Some((key, _)) = self.0.first_key_value()
             && key.time() < global_virtual_time
         {
-            self.records.pop_first().unwrap().1.output.commit();
+            self.0.pop_first().unwrap().1.output.commit();
         }
     }
 }
 
-struct Rollback<M>
+impl<M> Default for History<M>
+where
+    M: Model,
+{
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+pub(crate) struct Rollback<M>
 where
     M: Model,
     M::VirtualTime: Ord,
     M::LogicalProcessId: Ord,
 {
-    event: Event<M>,
-    prior_state: M::State,
-    anti_events: Vec<AntiEvent<M>>,
+    pub(crate) event: Event<M>,
+    pub(crate) prior_state: M::State,
+    pub(crate) anti_events: Vec<AntiEvent<M>>,
 }
 
 struct Record<M>

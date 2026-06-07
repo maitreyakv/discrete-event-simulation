@@ -5,6 +5,7 @@ mod queue;
 use crate::Model;
 pub(crate) use anti::AntiEvent;
 pub(crate) use key::EventKey;
+pub(crate) use queue::EventQueue;
 
 pub(crate) struct Event<M>
 where

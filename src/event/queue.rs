@@ -6,7 +6,6 @@ use crate::event::AntiEvent;
 use super::Event;
 use super::EventKey;
 
-#[derive(Default)]
 pub(crate) struct EventQueue<M>(BTreeMap<EventKey<M>, M::Event>)
 where
     M: Model;
@@ -45,5 +44,14 @@ where
         M::LogicalProcessId: Ord,
     {
         self.0.first_key_value().map(|(key, _)| key.time())
+    }
+}
+
+impl<M> Default for EventQueue<M>
+where
+    M: Model,
+{
+    fn default() -> Self {
+        Self(Default::default())
     }
 }
