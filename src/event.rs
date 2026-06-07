@@ -3,48 +3,68 @@ mod queue;
 
 use key::EventKey;
 
-struct Event<Data, VirtualTime, LogicalProcessId>
+use crate::Model;
+
+struct Event<M>
 where
-    VirtualTime: Ord,
-    LogicalProcessId: Ord,
+    M: Model,
+    M::VirtualTime: Ord,
+    M::LogicalProcessId: Ord,
 {
-    key: EventKey<VirtualTime, LogicalProcessId>,
-    data: Data,
+    key: EventKey<M>,
+    data: M::Event,
 }
 
-impl<Data, VirtualTime, LogicalProcessId> Ord for Event<Data, VirtualTime, LogicalProcessId>
+impl<M> Ord for Event<M>
 where
-    VirtualTime: Ord,
-    LogicalProcessId: Ord,
+    M: Model,
+    M::VirtualTime: Ord,
+    M::LogicalProcessId: Ord,
 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.key.cmp(&other.key)
     }
 }
 
-impl<Data, VirtualTime, LogicalProcessId> PartialOrd for Event<Data, VirtualTime, LogicalProcessId>
+impl<M> PartialOrd for Event<M>
 where
-    VirtualTime: Ord,
-    LogicalProcessId: Ord,
+    M: Model,
+    M::VirtualTime: Ord,
+    M::LogicalProcessId: Ord,
 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.key.cmp(&other.key))
+        Some(self.cmp(other))
     }
 }
 
-impl<Data, VirtualTime, LogicalProcessId> Eq for Event<Data, VirtualTime, LogicalProcessId>
+impl<M> Eq for Event<M>
 where
-    VirtualTime: Ord,
-    LogicalProcessId: Ord,
+    M: Model,
+    M::VirtualTime: Ord,
+    M::LogicalProcessId: Ord,
 {
 }
 
-impl<Data, VirtualTime, LogicalProcessId> PartialEq for Event<Data, VirtualTime, LogicalProcessId>
+impl<M> PartialEq for Event<M>
 where
-    VirtualTime: Ord,
-    LogicalProcessId: Ord,
+    M: Model,
+    M::VirtualTime: Ord,
+    M::LogicalProcessId: Ord,
 {
     fn eq(&self, other: &Self) -> bool {
         self.key == other.key
+    }
+}
+
+struct AntiEvent<M>(EventKey<M>)
+where
+    M: Model;
+
+impl<M> From<AntiEvent<M>> for EventKey<M>
+where
+    M: Model,
+{
+    fn from(value: AntiEvent<M>) -> Self {
+        value.0
     }
 }
