@@ -1,9 +1,10 @@
+mod anti;
 mod key;
 mod queue;
 
-use key::EventKey;
-
 use crate::Model;
+use anti::AntiEvent;
+use key::EventKey;
 
 struct Event<M>
 where
@@ -53,18 +54,5 @@ where
 {
     fn eq(&self, other: &Self) -> bool {
         self.key == other.key
-    }
-}
-
-struct AntiEvent<M>(EventKey<M>)
-where
-    M: Model;
-
-impl<M> From<AntiEvent<M>> for EventKey<M>
-where
-    M: Model,
-{
-    fn from(value: AntiEvent<M>) -> Self {
-        value.0
     }
 }
