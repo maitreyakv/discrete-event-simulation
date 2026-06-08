@@ -17,6 +17,25 @@ where
     pub(crate) data: M::Event,
 }
 
+impl<M> Event<M>
+where
+    M: Model,
+    M::VirtualTime: Ord,
+    M::LogicalProcessId: Ord,
+{
+    pub(crate) fn location(&self) -> &M::LogicalProcessId {
+        &self.key.location
+    }
+
+    pub(crate) fn anti(&self) -> AntiEvent<M>
+    where
+        M::VirtualTime: Clone,
+        M::LogicalProcessId: Clone,
+    {
+        self.key.clone().into()
+    }
+}
+
 impl<M> Ord for Event<M>
 where
     M: Model,

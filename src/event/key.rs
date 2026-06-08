@@ -5,7 +5,7 @@ where
     M: Model,
 {
     time: M::VirtualTime,
-    location: M::LogicalProcessId,
+    pub(crate) location: M::LogicalProcessId,
     age: usize,
     origin: M::LogicalProcessId,
     sequence_number: usize,
@@ -102,4 +102,21 @@ where
     M::VirtualTime: PartialEq,
     M::LogicalProcessId: PartialEq,
 {
+}
+
+impl<M> Clone for EventKey<M>
+where
+    M: Model,
+    M::VirtualTime: Clone,
+    M::LogicalProcessId: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            time: self.time.clone(),
+            location: self.location.clone(),
+            age: self.age.clone(),
+            origin: self.origin.clone(),
+            sequence_number: self.sequence_number.clone(),
+        }
+    }
 }

@@ -38,10 +38,10 @@ where
         self.0.contains_key(key)
     }
 
-    pub(crate) fn rollback(&mut self, until: &EventKey<M>) -> impl Iterator<Item = Rollback<M>> {
+    pub(crate) fn rollback(&mut self, before: &EventKey<M>) -> impl Iterator<Item = Rollback<M>> {
         std::iter::from_fn(move || {
             if let Some((key, _)) = self.0.last_key_value()
-                && key >= until
+                && key >= before
             {
                 self.0.pop_last().map(|(key, record)| Rollback {
                     event: Event {

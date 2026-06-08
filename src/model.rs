@@ -1,6 +1,8 @@
+use crate::Scheduler;
+
 pub trait Model: Sized {
     type LogicalProcessId;
-    type VirtualTime;
+    type VirtualTime: Ord;
     type State;
     type Event;
     type Output;
@@ -10,7 +12,12 @@ pub trait Model: Sized {
 
     fn start_time() -> Self::VirtualTime;
 
-    fn process_event() -> Result<(Self::State, Self::Output), Self::Error>;
+    fn process_event(
+        scheduler: &mut Scheduler<Self>,
+    ) -> Result<(Self::State, Self::Output), Self::Error>
+    where
+        Self::VirtualTime: Ord,
+        Self::LogicalProcessId: Ord;
 }
 
 pub trait Committable {

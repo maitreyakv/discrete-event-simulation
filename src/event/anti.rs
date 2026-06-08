@@ -14,3 +14,12 @@ where
         value.0
     }
 }
+
+impl<M> From<EventKey<M>> for AntiEvent<M>
+where
+    M: Model,
+{
+    fn from(value: EventKey<M>) -> Self {
+        Self(value)
+    }
+}

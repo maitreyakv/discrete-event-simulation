@@ -1,39 +1,60 @@
 mod history;
+mod scheduler;
+mod set;
 
 use history::History;
 use history::Rollback;
+pub use scheduler::Scheduler;
 
+use crate::DesError;
+use crate::event::Event;
 use crate::{
     Committable, Model,
     event::{EventKey, EventQueue},
 };
 
-pub(crate) struct LogicalProcess<M>
+struct LogicalProcess<M>
 where
     M: Model,
 {
-    pub(crate) id: M::LogicalProcessId,
-    pub(crate) state: M::State,
-    pub(crate) queue: EventQueue<M>,
-    pub(crate) history: History<M>,
-    pub(crate) sequence_number: usize,
+    state: M::State,
+    history: History<M>,
+    sequence_number: usize,
 }
 
 impl<M> LogicalProcess<M>
 where
     M: Model,
 {
-    fn create(id: M::LogicalProcessId, state: M::State) -> Self {
-        Self {
-            id,
-            state,
-            queue: Default::default(),
-            history: Default::default(),
-            sequence_number: 0,
-        }
+    //     pub(crate) fn create(id: M::LogicalProcessId, state: M::State) -> Self {
+    //         Self {
+    //             id,
+    //             state,
+    //             history: Default::default(),
+    //             sequence_number: 0,
+    //         }
+    //     }
+
+    pub(crate) fn process_event(
+        &mut self,
+        event: Event<M>,
+        scheduler: &mut Scheduler<M>,
+    ) -> Result<(), DesError<M>>
+    where
+        M::VirtualTime: Ord + Clone,
+        M::LogicalProcessId: Ord + Clone,
+    {
+        M::process_event(scheduler)
+            .map_err(DesError::EventProcessFailure)
+            .map(|(next_state, output)| {
+                let prior_state = std::mem::replace(&mut self.state, next_state);
+                let anti_events = scheduler.dispatch();
+                self.history
+                    .save_event(event, prior_state, output, anti_events);
+            })
     }
 
-    fn collect_fossils(&mut self, global_virtual_time: &M::VirtualTime)
+    pub(crate) fn collect_fossils(&mut self, global_virtual_time: &M::VirtualTime)
     where
         M::VirtualTime: Ord,
         M::LogicalProcessId: Ord,
@@ -42,20 +63,19 @@ where
         self.history.collect_fossils(global_virtual_time);
     }
 
-    fn rollback(&mut self, until: &EventKey<M>)
+    pub(crate) fn rollback(&mut self, before: &EventKey<M>)
     where
         M::VirtualTime: Ord,
         M::LogicalProcessId: Ord,
     {
-        self.history.rollback(until).for_each(
+        self.history.rollback(before).for_each(
             |Rollback {
                  event,
                  prior_state,
                  anti_events,
              }| {
                 self.state = prior_state;
-                self.queue.insert(event);
-                unimplemented!(/* send anti events */)
+                unimplemented!(/* re-queue event and send anti-events */)
             },
         );
     }
