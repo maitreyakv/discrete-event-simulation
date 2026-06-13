@@ -1,7 +1,9 @@
+mod context;
 mod history;
 mod scheduler;
 mod set;
 
+pub use context::Context;
 use history::History;
 use history::Rollback;
 pub use scheduler::Scheduler;
@@ -44,7 +46,11 @@ where
         M::VirtualTime: Ord + Clone,
         M::LogicalProcessId: Ord + Clone,
     {
-        M::process_event(scheduler)
+        let context = Context {
+            event: &event,
+            state: &self.state,
+        };
+        M::process_event(&context, scheduler)
             .map_err(DesError::EventProcessFailure)
             .map(|(next_state, output)| {
                 let prior_state = std::mem::replace(&mut self.state, next_state);

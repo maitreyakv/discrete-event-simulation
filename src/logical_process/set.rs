@@ -94,16 +94,14 @@ where
     M::VirtualTime: Ord + Clone,
     M::LogicalProcessId: Ord + Hash + Clone,
 {
-    fn process(mut self) -> Result<LogicalProcessSet<M>, DesError<M>> {
-        let mut scheduler = Scheduler::new(self.set.event_queue);
+    fn process(mut self) -> Result<(), DesError<M>> {
+        let mut scheduler = Scheduler {
+            local_event_queue: &self.set.event_queue,
+        };
         self.set
             .id_to_logical_process
             .get_mut(self.next.location())
             .ok_or_else(|| DesError::MissingLogicalProcess(self.next.location().clone()))?
             .process_event(self.next, &mut scheduler)
-            .map(|_| LogicalProcessSet {
-                event_queue: scheduler.local_event_queue,
-                ..self.set
-            })
     }
 }

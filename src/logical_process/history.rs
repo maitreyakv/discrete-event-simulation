@@ -62,7 +62,7 @@ where
         M::Output: Committable,
     {
         while let Some((key, _)) = self.0.first_key_value()
-            && key.time() < global_virtual_time
+            && key.time < *global_virtual_time
         {
             self.0.pop_first().unwrap().1.output.commit();
         }

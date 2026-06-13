@@ -1,64 +1,42 @@
 use crate::{
-    Model,
+    DesError, Model,
     event::{AntiEvent, Event, EventQueue},
 };
 
-pub struct Scheduler<M>
+pub struct Scheduler<'a, M>
 where
     M: Model,
     M::VirtualTime: Ord,
     M::LogicalProcessId: Ord,
 {
-    pub(crate) local_event_queue: EventQueue<M>,
-    scheduled_events: Vec<Event<M>>,
+    // pub(crate) time: M::VirtualTime,
+    pub(crate) local_event_queue: &'a EventQueue<M>,
+    // pub(crate) scheduled_events: Vec<Event<M>>,
 }
 
-impl<M> Scheduler<M>
+impl<M> Scheduler<'_, M>
 where
     M: Model,
     M::VirtualTime: Ord,
     M::LogicalProcessId: Ord,
 {
-    pub(crate) fn new(local_event_queue: EventQueue<M>) -> Self {
-        Self {
-            local_event_queue,
-            scheduled_events: Vec::new(),
-        }
-    }
-
     pub(crate) fn dispatch(&mut self) -> Vec<AntiEvent<M>> {
         todo!()
     }
 
-    // pub fn logical_process_id(&self) -> &M::LogicalProcessId {
-    //     &self.logical_process.id
-    // }
-    //
-    // pub fn time(&self) -> &M::VirtualTime {
-    //     &self.current_event_key.time
-    // }
-    //
-    // pub fn state(&self) -> &M::State {
-    //     &self.logical_process.state
-    // }
-    //
-    // pub fn event(&self) -> &M::Event {
-    //     &self.current_event
-    // }
-    //
     // pub fn schedule_event(
     //     &mut self,
     //     event: M::Event,
     //     time: M::VirtualTime,
     //     destination: M::LogicalProcessId,
-    // ) -> Result<(), CausalityViolation> {
-    //     if time < *self.time() {
-    //         return Err(CausalityViolation);
+    // ) -> Result<(), DesError<M>> {
+    //     if time < *self.time {
+    //         return Err(DesError::CausalityViolation);
     //     }
     //     self.scheduled_events.push((event, time, destination));
     //     Ok(())
     // }
-    //
+
     // pub fn schedule_internal_event(
     //     &mut self,
     //     event: M::Event,

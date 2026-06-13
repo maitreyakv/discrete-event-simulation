@@ -43,7 +43,7 @@ where
         M::VirtualTime: Ord,
         M::LogicalProcessId: Ord,
     {
-        self.0.first_key_value().map(|(key, _)| key.time())
+        self.0.first_key_value().map(|(key, _)| &key.time)
     }
 }
 

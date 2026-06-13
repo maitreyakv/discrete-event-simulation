@@ -4,7 +4,7 @@ pub(crate) struct EventKey<M>
 where
     M: Model,
 {
-    time: M::VirtualTime,
+    pub(crate) time: M::VirtualTime,
     pub(crate) location: M::LogicalProcessId,
     age: usize,
     origin: M::LogicalProcessId,
@@ -47,10 +47,6 @@ where
             origin,
             sequence_number,
         }
-    }
-
-    pub(crate) fn time(&self) -> &M::VirtualTime {
-        &self.time
     }
 }
 

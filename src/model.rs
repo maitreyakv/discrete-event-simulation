@@ -1,4 +1,4 @@
-use crate::Scheduler;
+use crate::{Context, Scheduler};
 
 pub trait Model: Sized {
     type LogicalProcessId;
@@ -13,6 +13,7 @@ pub trait Model: Sized {
     fn start_time() -> Self::VirtualTime;
 
     fn process_event(
+        context: &Context<Self>,
         scheduler: &mut Scheduler<Self>,
     ) -> Result<(Self::State, Self::Output), Self::Error>
     where
