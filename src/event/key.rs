@@ -29,7 +29,7 @@ where
         }
     }
 
-    fn create_another(
+    pub(crate) fn create_another(
         &self,
         time: M::VirtualTime,
         location: M::LogicalProcessId,

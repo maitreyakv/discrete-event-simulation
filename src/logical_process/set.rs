@@ -13,9 +13,9 @@ pub(crate) struct LogicalProcessSet<M>
 where
     M: Model,
 {
-    id_to_logical_process: HashMap<M::LogicalProcessId, LogicalProcess<M>>,
-    event_queue: EventQueue<M>,
-    guard: BTreeSet<EventKey<M>>,
+    pub(crate) id_to_logical_process: HashMap<M::LogicalProcessId, LogicalProcess<M>>,
+    pub(crate) event_queue: EventQueue<M>,
+    pub(crate) guard: BTreeSet<EventKey<M>>,
 }
 
 impl<M> LogicalProcessSet<M>
@@ -32,19 +32,19 @@ where
             .map(move |next| NextEvent { next, set: self })
     }
 
-    fn recv_event(&mut self, event: Event<M>) -> Result<(), DesError<M>>
-    where
-        M::LogicalProcessId: Ord + Hash + Clone,
-    {
-        if !self.guard.remove(&event.key) {
-            self.id_to_logical_process
-                .get_mut(event.location())
-                .ok_or_else(|| DesError::MissingLogicalProcess(event.location().clone()))?
-                .rollback(&event.key);
-            self.event_queue.insert(event);
-        }
-        Ok(())
-    }
+    // fn recv_event(&mut self, event: Event<M>) -> Result<(), DesError<M>>
+    // where
+    //     M::LogicalProcessId: Ord + Hash + Clone,
+    // {
+    //     if !self.guard.remove(&event.key) {
+    //         self.id_to_logical_process
+    //             .get_mut(event.location())
+    //             .ok_or_else(|| DesError::MissingLogicalProcess(event.location().clone()))?
+    //             .rollback(&event.key);
+    //         self.event_queue.insert(event);
+    //     }
+    //     Ok(())
+    // }
 
     // pub(crate) fn receive_anti_event(
     //     &mut self,
@@ -67,15 +67,15 @@ where
     //     Ok(())
     // }
 
-    fn collect_fossils(&mut self, global_virtual_time: &M::VirtualTime)
-    where
-        M::LogicalProcessId: Ord,
-        M::Output: Committable,
-    {
-        self.id_to_logical_process
-            .values_mut()
-            .for_each(|lp| lp.collect_fossils(global_virtual_time));
-    }
+    // fn collect_fossils(&mut self, global_virtual_time: &M::VirtualTime)
+    // where
+    //     M::LogicalProcessId: Ord,
+    //     M::Output: Committable,
+    // {
+    //     self.id_to_logical_process
+    //         .values_mut()
+    //         .for_each(|lp| lp.collect_fossils(global_virtual_time));
+    // }
 }
 
 struct NextEvent<M>
@@ -94,14 +94,24 @@ where
     M::VirtualTime: Ord + Clone,
     M::LogicalProcessId: Ord + Hash + Clone,
 {
-    fn process(mut self) -> Result<(), DesError<M>> {
+    fn process(mut self) -> Result<LogicalProcessSet<M>, DesError<M>> {
         let mut scheduler = Scheduler {
-            local_event_queue: &self.set.event_queue,
+            current_event: &self.next,
+            set: &mut self.set,
+            anti_events: Vec::new(),
         };
-        self.set
+        let (next_state, output) =
+            M::process_event(&mut scheduler).map_err(DesError::EventProcessFailure)?;
+        let anti_events = scheduler.dispatch();
+        let logical_process = self
+            .set
             .id_to_logical_process
             .get_mut(self.next.location())
-            .ok_or_else(|| DesError::MissingLogicalProcess(self.next.location().clone()))?
-            .process_event(self.next, &mut scheduler)
+            .ok_or_else(|| DesError::MissingLogicalProcess(self.next.location().clone()))?;
+        let prior_state = std::mem::replace(&mut logical_process.state, next_state);
+        logical_process
+            .history
+            .save_event(self.next, prior_state, output, anti_events);
+        Ok(self.set)
     }
 }
